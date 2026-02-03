@@ -1,7 +1,7 @@
 ---
 id: "2026-02-02_create-fitkit-package-structure"
 title: "Create fitkit package structure and extract core algorithms/loaders"
-status: "Proposed"
+status: "Completed"
 priority: "High"
 created: "2026-02-02"
 last_updated: "2026-02-02"
@@ -84,3 +84,15 @@ fitkit/
 ### 2026-02-02
 
 Task created to implement CIP-0002 phases 1-3 (package structure, algorithms, data loaders).
+
+Task completed:
+- Created package structure: fitkit/, fitkit/algorithms/, fitkit/data/
+- Created pyproject.toml with dependencies and tool configurations
+- Created fitkit/types.py with DataBundle and DataLoader protocol
+- Extracted fitness_complexity() into fitkit/algorithms/fitness.py
+- Extracted compute_eci_pci() into fitkit/algorithms/eci.py  
+- Extracted sinkhorn_masked() into fitkit/algorithms/sinkhorn.py
+- Created WikipediaLoader with environment-aware auth (Colab vs ADC) in fitkit/data/loaders.py
+- Created SyntheticLoader and create_small_fixture() in fitkit/data/fixtures.py
+- All __init__.py files created with proper exports
+- All functions have comprehensive docstrings referencing the paper
