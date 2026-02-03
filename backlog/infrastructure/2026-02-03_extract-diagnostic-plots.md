@@ -23,7 +23,7 @@ tags:
 
 ## Description
 
-Extract the 4 visualization functions currently in the notebook to a `fitkit/diagnostics/plots.py` module. These functions provide flow-native visualizations for bipartite data analysis and should be reusable across different notebooks and scripts.
+Extract the 4 visualisation functions currently in the notebook to a `fitkit/diagnostics/plots.py` module. These functions provide flow-native visualizations for bipartite data analysis and should be reusable across different notebooks and scripts.
 
 ## Acceptance Criteria
 
