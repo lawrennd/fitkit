@@ -4,7 +4,7 @@ import numpy as np
 import scipy.sparse as sp
 import pytest
 
-from fitkit.algorithms.fitness import fitness_complexity
+from fitkit.algorithms import FitnessComplexity, fitness_complexity
 from fitkit.data.fixtures import create_small_fixture
 
 
@@ -119,3 +119,77 @@ def test_fitness_empty_matrix():
     # All values should be equal (uniform) for empty matrix
     assert np.allclose(F, F.mean())
     assert np.allclose(Q, Q.mean())
+
+
+# ============================================================================
+# Tests for FitnessComplexity estimator class (sklearn-style API)
+# ============================================================================
+
+def test_fitness_estimator_basic():
+    """Test that FitnessComplexity estimator works with fit/transform."""
+    bundle = create_small_fixture()
+    
+    fc = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False)
+    fc.fit(bundle.matrix)
+    
+    # Check fitted attributes exist
+    assert hasattr(fc, 'fitness_')
+    assert hasattr(fc, 'complexity_')
+    assert hasattr(fc, 'history_')
+    assert hasattr(fc, 'n_iter_')
+    
+    # Check shapes
+    assert fc.fitness_.shape == (5,)
+    assert fc.complexity_.shape == (8,)
+
+
+def test_fitness_estimator_fit_transform():
+    """Test that fit_transform returns (F, Q)."""
+    bundle = create_small_fixture()
+    
+    fc = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False)
+    F, Q = fc.fit_transform(bundle.matrix)
+    
+    # Check shapes
+    assert F.shape == (5,)
+    assert Q.shape == (8,)
+    
+    # Check that fitted attributes match
+    np.testing.assert_array_equal(F, fc.fitness_)
+    np.testing.assert_array_equal(Q, fc.complexity_)
+
+
+def test_fitness_estimator_vs_functional():
+    """Test that estimator produces same results as functional API."""
+    bundle = create_small_fixture()
+    
+    # Functional API
+    F_func, Q_func, history_func = fitness_complexity(bundle.matrix, n_iter=100, tol=1e-10)
+    
+    # Estimator API
+    fc = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False)
+    F_est, Q_est = fc.fit_transform(bundle.matrix)
+    
+    # Should produce identical results
+    np.testing.assert_array_almost_equal(F_func, F_est)
+    np.testing.assert_array_almost_equal(Q_func, Q_est)
+
+
+def test_fitness_estimator_chaining():
+    """Test that estimator can be used in method chaining."""
+    bundle = create_small_fixture()
+    
+    # Chain: instantiate -> fit -> access attributes
+    F = FitnessComplexity(n_iter=100, verbose=False).fit(bundle.matrix).fitness_
+    
+    assert F.shape == (5,)
+    assert np.all(F > 0)
+
+
+def test_fitness_estimator_parameters():
+    """Test that estimator parameters are stored correctly."""
+    fc = FitnessComplexity(n_iter=500, tol=1e-12, verbose=True)
+    
+    assert fc.n_iter == 500
+    assert fc.tol == 1e-12
+    assert fc.verbose == True

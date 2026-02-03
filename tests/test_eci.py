@@ -4,7 +4,7 @@ import numpy as np
 import scipy.sparse as sp
 import pytest
 
-from fitkit.algorithms.eci import compute_eci_pci
+from fitkit.algorithms import ECI, compute_eci_pci
 from fitkit.data.fixtures import create_small_fixture
 
 
@@ -111,3 +111,66 @@ def test_eci_fully_connected():
     # In a fully connected graph, all nodes should have equal ECI/PCI (near zero after standardization)
     assert np.allclose(eci, 0.0, atol=1e-6)
     assert np.allclose(pci, 0.0, atol=1e-6)
+
+
+# ============================================================================
+# Tests for ECI estimator class (sklearn-style API)
+# ============================================================================
+
+def test_eci_estimator_basic():
+    """Test that ECI estimator works with fit/transform."""
+    bundle = create_small_fixture()
+    
+    eci_est = ECI()
+    eci_est.fit(bundle.matrix)
+    
+    # Check fitted attributes exist
+    assert hasattr(eci_est, 'eci_')
+    assert hasattr(eci_est, 'pci_')
+    
+    # Check shapes
+    assert eci_est.eci_.shape == (5,)
+    assert eci_est.pci_.shape == (8,)
+
+
+def test_eci_estimator_fit_transform():
+    """Test that fit_transform returns (ECI, PCI)."""
+    bundle = create_small_fixture()
+    
+    eci_est = ECI()
+    eci, pci = eci_est.fit_transform(bundle.matrix)
+    
+    # Check shapes
+    assert eci.shape == (5,)
+    assert pci.shape == (8,)
+    
+    # Check that fitted attributes match
+    np.testing.assert_array_equal(eci, eci_est.eci_)
+    np.testing.assert_array_equal(pci, eci_est.pci_)
+
+
+def test_eci_estimator_vs_functional():
+    """Test that estimator produces same results as functional API."""
+    bundle = create_small_fixture()
+    
+    # Functional API
+    eci_func, pci_func = compute_eci_pci(bundle.matrix)
+    
+    # Estimator API
+    eci_est, pci_est = ECI().fit_transform(bundle.matrix)
+    
+    # Should produce identical results
+    np.testing.assert_array_almost_equal(eci_func, eci_est)
+    np.testing.assert_array_almost_equal(pci_func, pci_est)
+
+
+def test_eci_estimator_chaining():
+    """Test that estimator can be used in method chaining."""
+    bundle = create_small_fixture()
+    
+    # Chain: instantiate -> fit -> access attributes
+    eci = ECI().fit(bundle.matrix).eci_
+    
+    assert eci.shape == (5,)
+    # Check standardization
+    assert np.abs(eci.mean()) < 1e-10

@@ -4,7 +4,7 @@ import numpy as np
 import scipy.sparse as sp
 import pytest
 
-from fitkit.algorithms.sinkhorn import sinkhorn_masked
+from fitkit.algorithms import SinkhornScaler, sinkhorn_masked
 from fitkit.data.fixtures import create_small_fixture
 
 
@@ -169,3 +169,115 @@ def test_sinkhorn_uniform_marginals():
     # Should match uniform distribution (up to total mass)
     assert np.allclose(r_hat / r_hat.sum(), r / r.sum(), atol=1e-9)
     assert np.allclose(c_hat / c_hat.sum(), c / c.sum(), atol=1e-9)
+
+
+# ============================================================================
+# Tests for SinkhornScaler transformer class (sklearn-style API)
+# ============================================================================
+
+def test_sinkhorn_scaler_basic():
+    """Test that SinkhornScaler works with fit/transform."""
+    bundle = create_small_fixture()
+    M = bundle.matrix
+    
+    r = np.asarray(M.sum(axis=1)).ravel()
+    c = np.asarray(M.sum(axis=0)).ravel()
+    
+    scaler = SinkhornScaler(n_iter=200, tol=1e-10)
+    scaler.fit(M, row_marginals=r, col_marginals=c)
+    
+    # Check fitted attributes exist
+    assert hasattr(scaler, 'u_')
+    assert hasattr(scaler, 'v_')
+    assert hasattr(scaler, 'W_')
+    assert hasattr(scaler, 'history_')
+    
+    # Check convergence
+    assert scaler.history_["converged"]
+
+
+def test_sinkhorn_scaler_transform():
+    """Test that transform applies fitted scaling."""
+    bundle = create_small_fixture()
+    M = bundle.matrix
+    
+    r = np.asarray(M.sum(axis=1)).ravel()
+    c = np.asarray(M.sum(axis=0)).ravel()
+    
+    scaler = SinkhornScaler(n_iter=200, tol=1e-10)
+    scaler.fit(M, row_marginals=r, col_marginals=c)
+    
+    # Transform should produce same result as W_
+    W_transform = scaler.transform(M)
+    np.testing.assert_array_almost_equal(W_transform.toarray(), scaler.W_.toarray())
+
+
+def test_sinkhorn_scaler_fit_transform():
+    """Test that fit_transform returns scaled matrix."""
+    bundle = create_small_fixture()
+    M = bundle.matrix
+    
+    r = np.asarray(M.sum(axis=1)).ravel()
+    c = np.asarray(M.sum(axis=0)).ravel()
+    
+    scaler = SinkhornScaler(n_iter=200, tol=1e-10)
+    W = scaler.fit_transform(M, row_marginals=r, col_marginals=c)
+    
+    # Check shape
+    assert W.shape == M.shape
+    
+    # Check marginals
+    r_hat = np.asarray(W.sum(axis=1)).ravel()
+    c_hat = np.asarray(W.sum(axis=0)).ravel()
+    
+    np.testing.assert_allclose(r_hat, r, atol=1e-9)
+    np.testing.assert_allclose(c_hat, c, atol=1e-9)
+
+
+def test_sinkhorn_scaler_vs_functional():
+    """Test that scaler produces same results as functional API."""
+    bundle = create_small_fixture()
+    M = bundle.matrix
+    
+    r = np.asarray(M.sum(axis=1)).ravel()
+    c = np.asarray(M.sum(axis=0)).ravel()
+    
+    # Functional API
+    u_func, v_func, W_func, history_func = sinkhorn_masked(M, r, c, n_iter=200, tol=1e-10)
+    
+    # Scaler API
+    scaler = SinkhornScaler(n_iter=200, tol=1e-10)
+    W_scaler = scaler.fit_transform(M, row_marginals=r, col_marginals=c)
+    
+    # Should produce identical results
+    np.testing.assert_array_almost_equal(u_func, scaler.u_)
+    np.testing.assert_array_almost_equal(v_func, scaler.v_)
+    np.testing.assert_array_almost_equal(W_func.toarray(), W_scaler.toarray())
+
+
+def test_sinkhorn_scaler_default_marginals():
+    """Test that scaler works with default uniform marginals."""
+    bundle = create_small_fixture()
+    M = bundle.matrix
+    
+    # No marginals provided: should use uniform
+    scaler = SinkhornScaler(n_iter=200, tol=1e-10)
+    scaler.fit(M)  # No row_marginals/col_marginals
+    
+    # Check that it converged
+    assert scaler.history_["converged"]
+    
+    # Check that marginals were set to uniform
+    assert np.allclose(scaler.row_marginals_, 1.0)
+    assert np.allclose(scaler.col_marginals_, 1.0)
+
+
+def test_sinkhorn_scaler_transform_before_fit():
+    """Test that transform raises error if called before fit."""
+    bundle = create_small_fixture()
+    M = bundle.matrix
+    
+    scaler = SinkhornScaler()
+    
+    with pytest.raises(ValueError, match="must be fitted"):
+        scaler.transform(M)

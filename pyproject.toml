@@ -5,7 +5,7 @@ description = "Scientific software for fitness-complexity analysis and economic 
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
-    {name = "Neil D. Lawrence", email = "n.lawrence@statslab.cam.ac.uk"}
+    {name = "Neil D. Lawrence", email = "lawrennd@gmail.com"}
 ]
 dependencies = [
     "numpy>=1.24",
