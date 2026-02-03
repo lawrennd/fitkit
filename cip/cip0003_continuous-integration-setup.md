@@ -23,8 +23,8 @@ tags:
 
 - [x] Proposed
 - [x] Accepted
-- [ ] In Progress
-- [ ] Implemented
+- [x] In Progress
+- [x] Implemented
 - [ ] Closed
 
 ## Summary
