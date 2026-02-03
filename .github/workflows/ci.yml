@@ -75,4 +75,4 @@ jobs:
       
       - name: Check notebook format
         run: |
-          python -c "import nbformat; nbformat.read('wikipedia_editing_fitness_complexity.ipynb', as_version=4); print('✅ Notebook is valid')"
+          python -c "import nbformat; nbformat.read('examples/wikipedia_editing_fitness_complexity.ipynb', as_version=4); print('✅ Notebook is valid')"

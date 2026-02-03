@@ -1,10 +1,10 @@
 ---
 id: "2026-02-02_update-notebook-to-use-package"
 title: "Update notebook to import from fitkit package"
-status: "Proposed"
+status: "Completed"
 priority: "Medium"
 created: "2026-02-02"
-last_updated: "2026-02-02"
+last_updated: "2026-02-03"
 category: "infrastructure"
 related_cips:
   - "0002"
@@ -85,3 +85,16 @@ This aligns with the tenet `notebook-as-narrative-backed-by-functions`.
 ### 2026-02-02
 
 Task created to implement CIP-0002 phase 6 (notebook refactoring).
+
+### 2026-02-03
+
+Task completed:
+- Moved notebook to `examples/` directory for better organization
+- Added auto-install cell for Colab compatibility (tries import, installs if missing)
+- Added imports from `fitkit.data` and `fitkit.algorithms`
+- Removed all inline function definitions (fitness_complexity, compute_eci_pci, sinkhorn_masked, data loading)
+- Updated BigQuery authentication documentation (Colab automatic, local via ADC)
+- Preserved all narrative, plots, and outputs
+- Updated README and CI workflow to reflect new notebook location
+
+Note: Diagnostic/plotting functions remain in notebook (not yet extracted to package).
