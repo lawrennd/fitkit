@@ -7,6 +7,7 @@ created: "2026-02-02"
 last_updated: "2026-02-02"
 related_tenets:
   - "reproducible-runs-produce-figures"
+  - "explicit-boundaries-for-scientific-software"
 stakeholders:
   - "Neil Lawrennd"
 tags:
@@ -31,7 +32,7 @@ In practice, this means having a minimal chain from WHAT → HOW → DO (require
 
 ## References
 
-- **Related Tenets**: reproducible-runs-produce-figures
+- **Related Tenets**: reproducible-runs-produce-figures; explicit-boundaries-for-scientific-software
 
 ## Progress Updates
 

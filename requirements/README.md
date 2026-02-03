@@ -1,10 +1,10 @@
-# VibeSafe Requirements
+# Fitkit Requirements
 
-This directory contains requirements for VibeSafe itself. Requirements define **WHAT** needs to be built.
+This directory contains requirements for **fitkit**. Requirements define **WHAT** should be true about the scientific software and its workflows.
 
 ## What vs How vs Do
 
-VibeSafe uses a clear hierarchy to separate concerns:
+Fitkit uses a clear hierarchy to separate concerns:
 
 | Level | Purpose | Question | Component | Example |
 |-------|---------|----------|-----------|---------|
@@ -18,7 +18,7 @@ VibeSafe uses a clear hierarchy to separate concerns:
 Requirements describe **outcomes and desired states**, not implementation details:
 
 ✅ **Good Requirements (WHAT)**:
-- "Users can install VibeSafe with a single command"
+- "Users can install fixkit with a single command"
 - "Project tenets are automatically available to AI assistants"
 - "Documentation stays synchronized with implementation"
 - "System files don't clutter user repositories"
