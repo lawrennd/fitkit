@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from fitkit.data.loaders import QueryConfig, SyntheticLoader
-from fitkit.data.fixtures import create_small_fixture
+from fitkit.data.loaders import QueryConfig
+from fitkit.data.fixtures import SyntheticLoader, create_small_fixture
 from fitkit.types import DataBundle
 
 
