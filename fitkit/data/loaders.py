@@ -50,6 +50,9 @@ class QueryConfig:
     # Post-filtering
     min_user_mass: int = 5
     min_word_mass: int = 5
+    
+    # GCP configuration
+    project_id: str | None = None  # GCP project ID (auto-detected if not specified)
 
 
 class WikipediaLoader:
