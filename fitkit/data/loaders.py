@@ -163,19 +163,63 @@ class WikipediaLoader:
             print("Ensure you've run: gcloud auth application-default login")
             credentials, project = google.auth.default()
 
-        # Use project from config if provided, otherwise use detected project
+        # Use project from config if provided
         if self.config.project_id:
             project = self.config.project_id
-        
-        if not project:
-            raise RuntimeError(
-                "No GCP project ID found. Please specify in QueryConfig:\n"
-                "  cfg = QueryConfig(project_id='your-project-id', ...)\n"
-                "Or set via: gcloud config set project YOUR_PROJECT_ID"
-            )
-
-        print(f"Using GCP project: {project}")
-        client = bigquery.Client(project=project, credentials=credentials)
+            print(f"Using GCP project from config: {project}")
+            client = bigquery.Client(project=project, credentials=credentials)
+        elif project:
+            # Use project from google.auth.default()
+            print(f"Using GCP project from credentials: {project}")
+            client = bigquery.Client(project=project, credentials=credentials)
+        else:
+            # Try to auto-detect available projects
+            print("No project detected, attempting to find available projects...")
+            from google.cloud import resourcemanager_v3
+            
+            try:
+                projects_client = resourcemanager_v3.ProjectsClient(credentials=credentials)
+                projects = list(projects_client.search_projects())
+                
+                if not projects:
+                    raise RuntimeError(
+                        "No GCP projects found. Please:\n"
+                        "1. Create a project at https://console.cloud.google.com\n"
+                        "2. Or specify project_id in QueryConfig:\n"
+                        "   cfg = QueryConfig(project_id='your-project-id', ...)"
+                    )
+                
+                # Try each project until one works
+                print(f"Found {len(projects)} accessible project(s), trying each...")
+                for proj in projects:
+                    try:
+                        test_project = proj.project_id
+                        print(f"  Trying project: {test_project}")
+                        test_client = bigquery.Client(
+                            project=test_project, 
+                            credentials=credentials
+                        )
+                        # Test with a simple query
+                        test_client.query("SELECT 1").result()
+                        project = test_project
+                        client = test_client
+                        print(f"✓ Successfully connected to: {project}")
+                        break
+                    except Exception as e:
+                        print(f"  ✗ Failed: {str(e)[:50]}...")
+                        continue
+                
+                if not project:
+                    raise RuntimeError(
+                        "Could not find a working GCP project. "
+                        "Please specify project_id in QueryConfig."
+                    )
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to auto-detect projects: {e}\n"
+                    "Please specify project_id in QueryConfig:\n"
+                    "  cfg = QueryConfig(project_id='your-project-id', ...)"
+                ) from e
 
         # Wikipedia query
         query = """
