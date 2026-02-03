@@ -1,7 +1,7 @@
 ---
 id: "2026-02-03_extract-diagnostic-plots"
 title: "Extract diagnostic plotting functions to fitkit.diagnostics"
-status: "Proposed"
+status: "Completed"
 priority: "Medium"
 created: "2026-02-03"
 last_updated: "2026-02-03"
@@ -14,7 +14,7 @@ dependencies:
 tags:
   - "backlog"
   - "diagnostics"
-  - "visualization"
+  - "visualisation"
 ---
 
 # Task: Extract diagnostic plotting functions to fitkit.diagnostics
@@ -68,3 +68,10 @@ Extract the 4 visualization functions currently in the notebook to a `fitkit/dia
 ### 2026-02-03
 
 Task created to complete the diagnostics extraction portion of CIP-0002 phase 4.
+
+Task completed:
+- Created `fitkit/diagnostics/` module with `__init__.py` and `plots.py`
+- Extracted 4 plotting functions with proper docstrings
+- Updated notebook to import from `fitkit.diagnostics`
+- Removed inline function definitions from notebook
+- All plot outputs preserved

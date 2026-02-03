@@ -1,7 +1,7 @@
 ---
 id: "2026-02-03_use-sklearn-api-in-notebook"
 title: "Update notebook to use sklearn-style estimator API"
-status: "Proposed"
+status: "Completed"
 priority: "Medium"
 created: "2026-02-03"
 last_updated: "2026-02-03"
@@ -98,3 +98,11 @@ W = scaler.fit_transform(M, row_marginals=r, col_marginals=c)
 ### 2026-02-03
 
 Task created to demonstrate sklearn-style API in the example notebook, completing the adoption of CIP-0004/REQ-0006.
+
+Task completed:
+- Updated notebook to use `FitnessComplexity`, `ECI`, `SinkhornScaler` classes
+- Replaced all functional API calls with sklearn-style `.fit_transform()`
+- Updated variable access to use fitted attributes (`.history_`, `.u_`, `.v_`, etc.)
+- Import statements reordered to emphasize sklearn classes
+- All numerical outputs preserved
+- Demonstrates recommended API pattern from CIP-0004
