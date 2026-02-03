@@ -12,6 +12,7 @@ import scipy.sparse as sp
 from fitkit.data.loaders import QueryConfig
 from fitkit.types import DataBundle
 
+
 class SyntheticLoader:
     """Generate synthetic Wikipedia-like data for testing.
 

@@ -7,6 +7,7 @@ import scipy.sparse as sp
 from fitkit.algorithms import ECI, compute_eci_pci
 from fitkit.data.fixtures import create_small_fixture
 
+
 def test_eci_basic():
     """Test that ECI/PCI runs and returns correct shapes."""
     bundle = create_small_fixture()

@@ -6,6 +6,7 @@ import scipy.sparse as sp
 from fitkit.algorithms import FitnessComplexity, fitness_complexity
 from fitkit.data.fixtures import create_small_fixture
 
+
 def test_fitness_convergence():
     """Test that fitness-complexity converges on a small fixture."""
     bundle = create_small_fixture()

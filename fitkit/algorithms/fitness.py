@@ -16,6 +16,7 @@ functional API (fitness_complexity) for convenience and backward compatibility.
 import numpy as np
 import scipy.sparse as sp
 
+
 def fitness_complexity(
     M_bin: sp.spmatrix,
     n_iter: int = 200,

@@ -19,6 +19,7 @@ Provides both a scikit-learn-style estimator (ECI) and a functional API
 import numpy as np
 import scipy.sparse as sp
 
+
 def compute_eci_pci(M_bin: sp.spmatrix) -> tuple[np.ndarray, np.ndarray]:
     """Compute ECI/PCI from binary matrix using the standard spectral formulation.
 

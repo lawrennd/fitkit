@@ -7,6 +7,7 @@ import scipy.sparse as sp
 from fitkit.algorithms import SinkhornScaler, sinkhorn_masked
 from fitkit.data.fixtures import create_small_fixture
 
+
 def test_sinkhorn_convergence():
     """Test that Sinkhorn converges on a small fixture."""
     bundle = create_small_fixture()

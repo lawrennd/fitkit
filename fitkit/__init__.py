@@ -28,6 +28,7 @@ __version__ = "0.1.0"
 
 # Export key types for convenience
 from fitkit.types import DataBundle, DataLoader
+
 __all__ = [
     "DataBundle",
     "DataLoader",

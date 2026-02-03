@@ -6,6 +6,7 @@ from fitkit.data.fixtures import SyntheticLoader, create_small_fixture
 from fitkit.data.loaders import QueryConfig
 from fitkit.types import DataBundle
 
+
 def test_create_small_fixture():
     """Test that create_small_fixture returns a valid DataBundle."""
     bundle = create_small_fixture()

@@ -19,6 +19,7 @@ API (sinkhorn_masked) for convenience and backward compatibility.
 import numpy as np
 import scipy.sparse as sp
 
+
 def sinkhorn_masked(
     M_bin: sp.spmatrix,
     r: np.ndarray,

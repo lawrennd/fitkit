@@ -11,6 +11,7 @@ from typing import Any, Protocol
 import numpy as np
 import scipy.sparse as sp
 
+
 @dataclass
 class DataBundle:
     """In-memory representation for bipartite incidence analysis.

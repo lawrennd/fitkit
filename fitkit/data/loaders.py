@@ -21,6 +21,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 
 from fitkit.types import DataBundle
 
+
 @dataclass(frozen=True)
 class QueryConfig:
     """Configuration for Wikipedia data query.
@@ -136,8 +137,8 @@ class WikipediaLoader:
         """
         # Import BigQuery dependencies here (only needed if actually querying)
         try:
-            from google.cloud import bigquery
             import google.auth
+            from google.cloud import bigquery
         except ImportError as e:
             raise ImportError(
                 "BigQuery dependencies not installed. "
