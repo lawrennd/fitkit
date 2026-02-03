@@ -1,5 +1,7 @@
 # fitkit (work in progress)
 
+[![CI](https://github.com/lawrennd/fitkit/actions/workflows/ci.yml/badge.svg)](https://github.com/lawrennd/fitkit/actions/workflows/ci.yml)
+
 This repository contains **in-development software accompanying the paper** *Conditional Likelihood Interpretation of Economic Fitness*.
 
 ## Scientific contribution
