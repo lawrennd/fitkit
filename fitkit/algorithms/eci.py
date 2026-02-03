@@ -18,8 +18,6 @@ Provides both a scikit-learn-style estimator (ECI) and a functional API
 
 import numpy as np
 import scipy.sparse as sp
-from typing import Optional
-
 
 def compute_eci_pci(M_bin: sp.spmatrix) -> tuple[np.ndarray, np.ndarray]:
     """Compute ECI/PCI from binary matrix using the standard spectral formulation.
@@ -100,60 +98,60 @@ def compute_eci_pci(M_bin: sp.spmatrix) -> tuple[np.ndarray, np.ndarray]:
 
 class ECI:
     """Scikit-learn-style estimator for Economic Complexity Index (ECI) and Product Complexity Index (PCI).
-    
+
     This estimator computes ECI/PCI via the spectral/linear method (second eigenvector
     of the country-country projection matrix). It serves as a baseline for comparison
     with the nonlinear Fitness-Complexity method.
-    
+
     Parameters:
         None (ECI/PCI computation has no hyperparameters).
-    
+
     Attributes (set after calling fit):
         eci_: Country ECI scores (n_countries,), standardized to mean 0, std 1.
         pci_: Product PCI scores (n_products,), standardized to mean 0, std 1.
-    
+
     Examples:
         >>> from fitkit.algorithms import ECI
         >>> eci_estimator = ECI()
         >>> eci_estimator.fit(M)  # M is binary incidence matrix
         >>> eci = eci_estimator.eci_
         >>> pci = eci_estimator.pci_
-        
+
         >>> # Or: one-liner
         >>> eci, pci = ECI().fit_transform(M)
-    
+
     References:
         Hidalgo & Hausmann (2009). "The building blocks of economic complexity". PNAS.
         Mariani et al. (2015). "Measuring Economic Complexity of Countries and Products".
     """
-    
+
     def __init__(self):
         """Initialize ECI estimator.
-        
+
         Note: ECI/PCI computation has no hyperparameters.
         """
         pass
-    
-    def fit(self, X: sp.spmatrix, y: Optional[np.ndarray] = None):
+
+    def fit(self, X: sp.spmatrix, y: np.ndarray | None = None):
         """Compute ECI/PCI on binary incidence matrix X.
-        
+
         Args:
             X: Scipy sparse matrix (n_countries × n_products), entries in {0,1}.
             y: Ignored. Present for sklearn compatibility.
-        
+
         Returns:
             self: Fitted estimator.
         """
         self.eci_, self.pci_ = compute_eci_pci(X)
         return self
-    
-    def fit_transform(self, X: sp.spmatrix, y: Optional[np.ndarray] = None):
+
+    def fit_transform(self, X: sp.spmatrix, y: np.ndarray | None = None):
         """Fit and return (ECI, PCI).
-        
+
         Args:
             X: Scipy sparse matrix (n_countries × n_products), entries in {0,1}.
             y: Ignored. Present for sklearn compatibility.
-        
+
         Returns:
             eci: Country ECI scores (n_countries,).
             pci: Product PCI scores (n_products,).

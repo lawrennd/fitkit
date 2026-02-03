@@ -18,8 +18,6 @@ API (sinkhorn_masked) for convenience and backward compatibility.
 
 import numpy as np
 import scipy.sparse as sp
-from typing import Optional
-
 
 def sinkhorn_masked(
     M_bin: sp.spmatrix,
@@ -138,18 +136,18 @@ def sinkhorn_masked(
 
 class SinkhornScaler:
     """Scikit-learn-style transformer for Sinkhorn-Knopp / IPF matrix scaling.
-    
+
     This transformer finds diagonal scalings u, v such that:
         W = diag(u) @ X @ diag(v)
     matches prescribed row and column marginals. This is the Sinkhorn-Knopp
     algorithm / Iterative Proportional Fitting (IPF), constrained to the
     support of X (entries off-support remain zero).
-    
+
     Parameters:
         n_iter: Maximum number of iterations (default: 2000).
         tol: Convergence tolerance on max marginal error (default: 1e-12).
         eps: Numerical guard to avoid division by zero (default: 1e-30).
-    
+
     Attributes (set after calling fit):
         u_: Row scaling factors (n_rows,).
         v_: Column scaling factors (n_cols,).
@@ -157,25 +155,25 @@ class SinkhornScaler:
         history_: Dict with convergence diagnostics (dr, dc, iters, converged).
         row_marginals_: Fitted row marginals (passed to fit).
         col_marginals_: Fitted column marginals (passed to fit).
-    
+
     Examples:
         >>> from fitkit.algorithms import SinkhornScaler
         >>> scaler = SinkhornScaler(n_iter=2000, tol=1e-12)
         >>> scaler.fit(M, row_marginals=r, col_marginals=c)
         >>> W = scaler.transform(M)  # Apply fitted scaling
         >>> # Or: W = scaler.W_  # Scaled matrix as fitted attribute
-        
+
         >>> # Or: one-liner (fit and transform)
         >>> W = SinkhornScaler(n_iter=2000).fit_transform(M, row_marginals=r, col_marginals=c)
-    
+
     References:
         Sinkhorn & Knopp (1967). "Concerning nonnegative matrices and doubly stochastic matrices".
         Lawrence, N.D. (2024). "Conditional Likelihood Interpretation of Economic Fitness".
     """
-    
+
     def __init__(self, n_iter: int = 2000, tol: float = 1e-12, eps: float = 1e-30):
         """Initialize SinkhornScaler transformer.
-        
+
         Args:
             n_iter: Maximum number of iterations.
             tol: Convergence tolerance on max marginal error.
@@ -184,19 +182,19 @@ class SinkhornScaler:
         self.n_iter = n_iter
         self.tol = tol
         self.eps = eps
-    
-    def fit(self, X: sp.spmatrix, y: Optional[np.ndarray] = None, 
-            row_marginals: Optional[np.ndarray] = None,
-            col_marginals: Optional[np.ndarray] = None):
+
+    def fit(self, X: sp.spmatrix, y: np.ndarray | None = None,
+            row_marginals: np.ndarray | None = None,
+            col_marginals: np.ndarray | None = None):
         """Compute Sinkhorn scaling factors for matrix X.
-        
+
         Args:
             X: Scipy sparse matrix (n_rows × n_cols), entries in {0,1}.
                This defines the support (where entries can be nonzero).
             y: Ignored. Present for sklearn compatibility.
             row_marginals: Desired row marginals (n_rows,). If None, use uniform.
             col_marginals: Desired column marginals (n_cols,). If None, use uniform.
-        
+
         Returns:
             self: Fitted transformer.
         """
@@ -205,42 +203,42 @@ class SinkhornScaler:
             row_marginals = np.ones(X.shape[0])
         if col_marginals is None:
             col_marginals = np.ones(X.shape[1])
-        
+
         self.row_marginals_ = row_marginals
         self.col_marginals_ = col_marginals
-        
+
         self.u_, self.v_, self.W_, self.history_ = sinkhorn_masked(
             X, row_marginals, col_marginals,
             n_iter=self.n_iter, tol=self.tol, eps=self.eps
         )
         return self
-    
+
     def transform(self, X: sp.spmatrix) -> sp.spmatrix:
         """Apply fitted scaling to matrix X.
-        
+
         Args:
             X: Scipy sparse matrix (n_rows × n_cols), same support as fitted matrix.
-        
+
         Returns:
             W: Scaled sparse matrix W = diag(u) @ X @ diag(v).
         """
         if not hasattr(self, 'u_') or not hasattr(self, 'v_'):
             raise ValueError("SinkhornScaler must be fitted before transform")
-        
+
         W = sp.diags(self.u_) @ X @ sp.diags(self.v_)
         return W
-    
-    def fit_transform(self, X: sp.spmatrix, y: Optional[np.ndarray] = None,
-                     row_marginals: Optional[np.ndarray] = None,
-                     col_marginals: Optional[np.ndarray] = None) -> sp.spmatrix:
+
+    def fit_transform(self, X: sp.spmatrix, y: np.ndarray | None = None,
+                     row_marginals: np.ndarray | None = None,
+                     col_marginals: np.ndarray | None = None) -> sp.spmatrix:
         """Fit and return scaled matrix.
-        
+
         Args:
             X: Scipy sparse matrix (n_rows × n_cols), entries in {0,1}.
             y: Ignored. Present for sklearn compatibility.
             row_marginals: Desired row marginals (n_rows,). If None, use uniform.
             col_marginals: Desired column marginals (n_cols,). If None, use uniform.
-        
+
         Returns:
             W: Scaled sparse matrix W = diag(u) @ X @ diag(v).
         """

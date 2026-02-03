@@ -11,12 +11,12 @@ Main components:
 Quick start:
     >>> from fitkit.data.loaders import WikipediaLoader, QueryConfig
     >>> from fitkit.algorithms.fitness import fitness_complexity
-    >>> 
+    >>>
     >>> # Load data
     >>> config = QueryConfig(max_authors=100)
     >>> loader = WikipediaLoader(config, cache_path="data/cache.parquet")
     >>> bundle = loader.load()
-    >>> 
+    >>>
     >>> # Compute fitness-complexity
     >>> F, Q, history = fitness_complexity(bundle.matrix)
 
@@ -28,7 +28,6 @@ __version__ = "0.1.0"
 
 # Export key types for convenience
 from fitkit.types import DataBundle, DataLoader
-
 __all__ = [
     "DataBundle",
     "DataLoader",

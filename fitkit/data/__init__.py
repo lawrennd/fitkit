@@ -9,9 +9,8 @@ This module provides:
 All loaders conform to the DataLoader protocol and return DataBundle objects.
 """
 
-from fitkit.data.loaders import WikipediaLoader, QueryConfig
 from fitkit.data.fixtures import SyntheticLoader, create_small_fixture
-
+from fitkit.data.loaders import WikipediaLoader, QueryConfig
 __all__ = [
     "WikipediaLoader",
     "QueryConfig",

@@ -17,15 +17,12 @@ All algorithms accept in-memory sparse matrices and perform no I/O.
 """
 
 # Estimator classes (sklearn-style)
-from fitkit.algorithms.fitness import FitnessComplexity
 from fitkit.algorithms.eci import ECI
-from fitkit.algorithms.sinkhorn import SinkhornScaler
-
-# Functional APIs (backward compatibility)
-from fitkit.algorithms.fitness import fitness_complexity
 from fitkit.algorithms.eci import compute_eci_pci
+from fitkit.algorithms.fitness import FitnessComplexity
+from fitkit.algorithms.fitness import fitness_complexity
+from fitkit.algorithms.sinkhorn import SinkhornScaler
 from fitkit.algorithms.sinkhorn import sinkhorn_masked
-
 __all__ = [
     # Estimators (sklearn-style, recommended)
     "FitnessComplexity",

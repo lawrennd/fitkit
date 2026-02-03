@@ -7,17 +7,17 @@ including the DataBundle (in-memory representation) and DataLoader protocol
 
 from dataclasses import dataclass
 from typing import Any, Protocol
-import scipy.sparse as sp
-import numpy as np
 
+import numpy as np
+import scipy.sparse as sp
 
 @dataclass
 class DataBundle:
     """In-memory representation for bipartite incidence analysis.
-    
+
     This is the standard interface between data loading and algorithms.
     All algorithms accept DataBundle objects and never perform I/O directly.
-    
+
     Attributes:
         matrix: Sparse incidence or count matrix (rows × columns)
         row_labels: Labels for matrix rows (e.g., user IDs, country codes)
@@ -37,20 +37,20 @@ class DataBundle:
 
 class DataLoader(Protocol):
     """Abstract interface for data loading adapters.
-    
+
     Implementations of this protocol handle I/O, authentication, caching,
     and return a standardized in-memory DataBundle.
-    
+
     This interface is designed to be compatible with future integration
     into data-oriented architectures (e.g., Lynguine's access layer).
     """
-    
+
     def load(self) -> DataBundle:
         """Load data and return an in-memory DataBundle.
-        
+
         Returns:
             DataBundle with matrix, labels, and metadata
-            
+
         Raises:
             IOError: If data cannot be loaded
             AuthenticationError: If credentials are missing/invalid
