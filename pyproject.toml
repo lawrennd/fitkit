@@ -76,5 +76,6 @@ module = [
     "google.cloud.*",
     "google.auth.*",
     "google.colab.*",
+    "matplotlib.*",
 ]
 ignore_missing_imports = true

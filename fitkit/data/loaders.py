@@ -178,7 +178,7 @@ class WikipediaLoader:
         else:
             # Try to auto-detect available projects
             print("No project detected, attempting to find available projects...")
-            from google.cloud import resourcemanager_v3
+            from google.cloud import resourcemanager_v3  # type: ignore[attr-defined]
 
             try:
                 projects_client = resourcemanager_v3.ProjectsClient(credentials=credentials)
