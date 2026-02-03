@@ -60,7 +60,7 @@ def fitness_complexity(
 
     M_csr = M_bin.tocsr()
 
-    history = {"dF": [], "dQ": []}
+    history: dict[str, list[float]] = {"dF": [], "dQ": []}
 
     for it in range(n_iter):
         # Update F: diversification-weighted complexity

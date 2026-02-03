@@ -27,6 +27,8 @@ dev = [
     "ruff",
     "mypy",
     "nbformat",
+    "pandas-stubs",
+    "types-setuptools",
 ]
 
 [build-system]
@@ -61,3 +63,15 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false  # Start permissive, tighten over time
+
+# Ignore missing imports for libraries without stubs
+[[tool.mypy.overrides]]
+module = [
+    "numpy.*",
+    "scipy.*",
+    "sklearn.*",
+    "google.cloud.*",
+    "google.auth.*",
+    "google.colab.*",
+]
+ignore_missing_imports = true
