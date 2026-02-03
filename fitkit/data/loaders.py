@@ -163,10 +163,15 @@ class WikipediaLoader:
             print("Ensure you've run: gcloud auth application-default login")
             credentials, project = google.auth.default()
 
-        if project is None:
+        # Use project from config if provided, otherwise use detected project
+        if self.config.project_id:
+            project = self.config.project_id
+        
+        if not project:
             raise RuntimeError(
-                "No default GCP project found. "
-                "Set via: gcloud config set project YOUR_PROJECT_ID"
+                "No GCP project ID found. Please specify in QueryConfig:\n"
+                "  cfg = QueryConfig(project_id='your-project-id', ...)\n"
+                "Or set via: gcloud config set project YOUR_PROJECT_ID"
             )
 
         print(f"Using GCP project: {project}")
