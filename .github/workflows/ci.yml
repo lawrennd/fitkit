@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+      
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+  vibesafe:
+    name: VibeSafe validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install VibeSafe dependencies
+        run: pip install python-frontmatter pyyaml
+      
+      - name: Run VibeSafe validator
+        run: python scripts/validate_vibesafe_structure.py --strict
+
+  quality:
+    name: Code quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install quality tools
+        run: pip install ruff mypy
+      
+      - name: Run ruff
+        run: ruff check fitkit/ tests/
+      
+      - name: Run mypy
+        run: mypy fitkit/ --check-untyped-defs
+
+  notebook:
+    name: Notebook validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install nbformat
+        run: pip install nbformat
+      
+      - name: Check notebook format
+        run: |
+          python -c "import nbformat; nbformat.read('wikipedia_editing_fitness_complexity.ipynb', as_version=4); print('✅ Notebook is valid')"

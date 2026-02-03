@@ -1,7 +1,7 @@
 ---
 id: "2026-02-02_setup-continuous-integration"
 title: "Set up GitHub Actions continuous integration"
-status: "Proposed"
+status: "Completed"
 priority: "High"
 created: "2026-02-02"
 last_updated: "2026-02-02"
@@ -128,3 +128,15 @@ disallow_untyped_defs = false
 ### 2026-02-02
 
 Task created to implement CIP-0003 (CI setup).
+
+Task completed:
+- Created .github/workflows/ci.yml with 4 jobs:
+  * test: Run pytest tests (offline, synthetic fixtures only)
+  * vibesafe: Run governance validator with --strict
+  * quality: Run ruff linter and mypy type checker
+  * notebook: Validate notebook format (no execution)
+- All jobs run on Python 3.11, Ubuntu latest
+- Workflow triggers on all pushes and PRs to main
+- pyproject.toml already includes pytest/ruff/mypy configs
+- pyproject.toml already includes test/dev optional dependencies
+- No cloud credentials or network access required (offline-by-default per REQ-0005)
