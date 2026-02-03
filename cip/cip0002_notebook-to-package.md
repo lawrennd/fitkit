@@ -1,7 +1,7 @@
 ---
 id: "0002"
 title: "Convert notebook capabilities into a Python package"
-status: "Proposed"
+status: "Accepted"
 created: "2026-02-02"
 last_updated: "2026-02-02"
 author: "Neil Lawrennd"
@@ -23,7 +23,7 @@ tags:
 ## Status
 
 - [x] Proposed
-- [ ] Accepted
+- [x] Accepted
 - [ ] In Progress
 - [ ] Implemented
 - [ ] Closed

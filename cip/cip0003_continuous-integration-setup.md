@@ -1,7 +1,7 @@
 ---
 id: "0003"
 title: "Set up continuous integration with GitHub Actions"
-status: "Proposed"
+status: "Accepted"
 created: "2026-02-02"
 last_updated: "2026-02-02"
 author: "Neil Lawrennd"
@@ -22,7 +22,7 @@ tags:
 ## Status
 
 - [x] Proposed
-- [ ] Accepted
+- [x] Accepted
 - [ ] In Progress
 - [ ] Implemented
 - [ ] Closed
