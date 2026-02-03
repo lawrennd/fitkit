@@ -4,23 +4,22 @@ This module provides visualization tools for exploring fitness-complexity result
 including flow visualizations, dual potential plots, and ranked barcode displays.
 """
 
-import numpy as np
-import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
-from matplotlib.path import Path
-from matplotlib.patches import PathPatch
+import numpy as np
+import pandas as pd
 import scipy.sparse as sp
+from matplotlib.patches import PathPatch, Polygon
+from matplotlib.path import Path
 
 
 def _to_flow_df(M: pd.DataFrame, W: sp.spmatrix | np.ndarray) -> pd.DataFrame:
     """Convert flow matrix W to DataFrame matching M's index/columns.
-    
+
     Args:
         M: DataFrame with index/columns matching desired output.
         W: Sparse matrix or array representing flow/coupling.
-        
+
     Returns:
         DataFrame with same index/columns as M, containing W values on support.
     """
@@ -116,11 +115,15 @@ def plot_circular_bipartite_flow(
     if color_by == "product":
         cmap = plt.get_cmap("tab20")
         colors = {p: cmap(i % 20) for i, p in enumerate(products)}
-        edge_color = lambda row: colors[row["product"]]
+
+        def edge_color(row):
+            return colors[row["product"]]
     else:
         cmap = plt.get_cmap("tab20")
         colors = {c: cmap(i % 20) for i, c in enumerate(countries)}
-        edge_color = lambda row: colors[row["country"]]
+
+        def edge_color(row):
+            return colors[row["country"]]
 
     w = edges["w"].to_numpy()
     wmax = float(w.max())
@@ -152,7 +155,10 @@ def plot_circular_bipartite_flow(
         verts = [(x0, y0), (c0[0], c0[1]), (c1[0], c1[1]), (x1, y1)]
         codes = [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]
         path = Path(verts, codes)
-        patch = PathPatch(path, facecolor="none", edgecolor=edge_color(row._asdict()), lw=lw[i], alpha=0.55)
+        patch = PathPatch(
+            path, facecolor="none", edgecolor=edge_color(row._asdict()),
+            lw=lw[i], alpha=0.55
+        )
         ax.add_patch(patch)
 
     ax.set_title(title + f"\n(top {len(edges)} edges)")
@@ -239,12 +245,18 @@ def plot_alluvial_bipartite(
     # draw nodes
     for c in countries:
         y0, y1 = span_c[c]
-        ax.add_patch(Polygon([[xL - node_w, y0], [xL, y0], [xL, y1], [xL - node_w, y1]], closed=True, color="black", alpha=0.15))
+        ax.add_patch(Polygon(
+            [[xL - node_w, y0], [xL, y0], [xL, y1], [xL - node_w, y1]],
+            closed=True, color="black", alpha=0.15
+        ))
         ax.text(xL - node_w - 0.01, (y0 + y1) / 2, str(c), ha="right", va="center", fontsize=8)
 
     for p in products:
         y0, y1 = span_p[p]
-        ax.add_patch(Polygon([[xR, y0], [xR + node_w, y0], [xR + node_w, y1], [xR, y1]], closed=True, color="black", alpha=0.15))
+        ax.add_patch(Polygon(
+            [[xR, y0], [xR + node_w, y0], [xR + node_w, y1], [xR, y1]],
+            closed=True, color="black", alpha=0.15
+        ))
         ax.text(xR + node_w + 0.01, (y0 + y1) / 2, str(p), ha="left", va="center", fontsize=8)
 
     # bands
@@ -343,8 +355,14 @@ def plot_dual_potential_bipartite(
         ax.plot([x_c, x_p], [y_c[c], y_p[p]], color="black", alpha=0.12, lw=lw[i])
 
     # nodes
-    ax.scatter([x_c] * len(c_order), [y_c[c] for c in c_order], c=[cmap(norm(phi[c])) for c in c_order], s=18, edgecolor="none")
-    ax.scatter([x_p] * len(p_order), [y_p[p] for p in p_order], c=[cmap(norm(psi[p])) for p in p_order], s=18, edgecolor="none")
+    ax.scatter(
+        [x_c] * len(c_order), [y_c[c] for c in c_order],
+        c=[cmap(norm(phi[c])) for c in c_order], s=18, edgecolor="none"
+    )
+    ax.scatter(
+        [x_p] * len(p_order), [y_p[p] for p in p_order],
+        c=[cmap(norm(psi[p])) for p in p_order], s=18, edgecolor="none"
+    )
 
     ax.set_yticks([])
     ax.set_xticks([x_c, x_p])

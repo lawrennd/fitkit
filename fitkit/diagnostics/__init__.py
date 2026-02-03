@@ -5,12 +5,12 @@ including flow visualizations, dual potential plots, and ranked barcode displays
 """
 
 from fitkit.diagnostics.plots import (
-    plot_circular_bipartite_flow,
-    plot_alluvial_bipartite,
-    plot_dual_potential_bipartite,
-    plot_ranked_barcodes,
     _to_flow_df,
     _top_subset,
+    plot_alluvial_bipartite,
+    plot_circular_bipartite_flow,
+    plot_dual_potential_bipartite,
+    plot_ranked_barcodes,
 )
 
 __all__ = [

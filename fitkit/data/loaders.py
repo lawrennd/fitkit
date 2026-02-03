@@ -50,7 +50,7 @@ class QueryConfig:
     # Post-filtering
     min_user_mass: int = 5
     min_word_mass: int = 5
-    
+
     # GCP configuration
     project_id: str | None = None  # GCP project ID (auto-detected if not specified)
 
@@ -179,11 +179,11 @@ class WikipediaLoader:
             # Try to auto-detect available projects
             print("No project detected, attempting to find available projects...")
             from google.cloud import resourcemanager_v3
-            
+
             try:
                 projects_client = resourcemanager_v3.ProjectsClient(credentials=credentials)
                 projects = list(projects_client.search_projects())
-                
+
                 if not projects:
                     raise RuntimeError(
                         "No GCP projects found. Please:\n"
@@ -191,7 +191,7 @@ class WikipediaLoader:
                         "2. Or specify project_id in QueryConfig:\n"
                         "   cfg = QueryConfig(project_id='your-project-id', ...)"
                     )
-                
+
                 # Try each project until one works
                 print(f"Found {len(projects)} accessible project(s), trying each...")
                 for proj in projects:
@@ -199,7 +199,7 @@ class WikipediaLoader:
                         test_project = proj.project_id
                         print(f"  Trying project: {test_project}")
                         test_client = bigquery.Client(
-                            project=test_project, 
+                            project=test_project,
                             credentials=credentials
                         )
                         # Test with a simple query
@@ -211,7 +211,7 @@ class WikipediaLoader:
                     except Exception as e:
                         print(f"  ✗ Failed: {str(e)[:50]}...")
                         continue
-                
+
                 if not project:
                     raise RuntimeError(
                         "Could not find a working GCP project. "
