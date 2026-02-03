@@ -102,7 +102,9 @@ def sinkhorn_masked(
     u = np.ones(K.shape[0], dtype=float)
     v = np.ones(K.shape[1], dtype=float)
 
-    history: dict[str, list[float] | int | bool] = {"dr": [], "dc": [], "iters": 0, "converged": False}
+    history: dict[str, list[float] | int | bool] = {
+        "dr": [], "dc": [], "iters": 0, "converged": False
+    }
 
     for it in range(n_iter):
         # Update u: scale rows to match r
