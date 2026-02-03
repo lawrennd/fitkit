@@ -1,7 +1,6 @@
 """Tests for Fitness-Complexity fixed-point iteration."""
 
 import numpy as np
-import pytest
 import scipy.sparse as sp
 
 from fitkit.algorithms import FitnessComplexity, fitness_complexity

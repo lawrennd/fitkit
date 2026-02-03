@@ -1,7 +1,6 @@
 """Tests for data loaders (offline, no BigQuery required)."""
 
 import numpy as np
-import pytest
 
 from fitkit.data.fixtures import SyntheticLoader, create_small_fixture
 from fitkit.data.loaders import QueryConfig

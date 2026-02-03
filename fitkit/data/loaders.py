@@ -10,14 +10,14 @@ Authentication is environment-aware:
 - In tests: not needed (use SyntheticLoader from fixtures module)
 """
 
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
-import os
 
-from sklearn.feature_extraction.text import CountVectorizer
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
+from sklearn.feature_extraction.text import CountVectorizer
 
 from fitkit.types import DataBundle
 
@@ -198,7 +198,10 @@ class WikipediaLoader:
         )
         SELECT
           author,
-          ARRAY_TO_STRING(ARRAY_AGG(body ORDER BY LENGTH(body) DESC LIMIT @max_docs_per_author), '\\n') AS user_text,
+          ARRAY_TO_STRING(
+              ARRAY_AGG(body ORDER BY LENGTH(body) DESC LIMIT @max_docs_per_author),
+              '\\n'
+          ) AS user_text,
           COUNT(*) AS n_comments
         FROM valid_edits
         JOIN sampled_authors
@@ -210,8 +213,14 @@ class WikipediaLoader:
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ScalarQueryParameter("max_authors", "INT64", self.config.max_authors),
-                bigquery.ScalarQueryParameter("min_comments_per_author", "INT64", self.config.min_comments_per_author),
-                bigquery.ScalarQueryParameter("max_docs_per_author", "INT64", self.config.max_docs_per_author),
+                bigquery.ScalarQueryParameter(
+                    "min_comments_per_author", "INT64",
+                    self.config.min_comments_per_author
+                ),
+                bigquery.ScalarQueryParameter(
+                    "max_docs_per_author", "INT64",
+                    self.config.max_docs_per_author
+                ),
             ]
         )
 
