@@ -14,11 +14,21 @@ The paper reframes the **Fitness–Complexity** algorithm as a statistical / inf
 
 This perspective explains key empirical properties (scale freedom, weakest-link effects, bottlenecks) as consequences of feasibility + maximum-entropy completion on a sparse support.
 
-## What’s in this repo
+## What's in this repo
 
-- `wikipedia_editing_fitness_complexity.ipynb`: a worked notebook demonstrating Fitness–Complexity alongside the equivalent masked IPF/Sinkhorn viewpoint and “flow-native” visualisations.
+- **`fitkit/`**: Python package with algorithms (Fitness-Complexity, ECI/PCI, Sinkhorn), data loaders, and type definitions
+- **`examples/wikipedia_editing_fitness_complexity.ipynb`**: A worked notebook demonstrating Fitness–Complexity alongside the equivalent masked IPF/Sinkhorn viewpoint and "flow-native" visualisations
+- **`tests/`**: Comprehensive unit tests (48 tests covering all algorithms)
+
+## Installation
+
+For local development:
+```bash
+pip install -e .
+```
+
+For Colab or Jupyter notebooks, the example notebook includes auto-installation.
 
 ## Status
 
 The code and API are not yet stabilised; expect changes.
-
