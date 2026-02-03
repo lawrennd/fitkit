@@ -70,6 +70,8 @@ module = [
     "numpy.*",
     "scipy.*",
     "sklearn.*",
+    "pandas.*",
+    "google.*",
     "google.cloud.*",
     "google.auth.*",
     "google.colab.*",

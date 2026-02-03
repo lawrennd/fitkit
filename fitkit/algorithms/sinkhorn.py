@@ -102,7 +102,8 @@ def sinkhorn_masked(
     u = np.ones(K.shape[0], dtype=float)
     v = np.ones(K.shape[1], dtype=float)
 
-    history: dict[str, list[float] | int | bool] = {
+    from typing import Any
+    history: dict[str, Any] = {
         "dr": [], "dc": [], "iters": 0, "converged": False
     }
 
