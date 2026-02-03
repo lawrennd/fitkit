@@ -124,7 +124,7 @@ def test_query_config_defaults():
     assert config.max_docs_per_author == 2000
     assert config.min_df == 3
     assert config.max_features == 5000
-    assert config.binary == False
+    assert not config.binary
     assert config.min_user_mass == 5
     assert config.min_word_mass == 5
 

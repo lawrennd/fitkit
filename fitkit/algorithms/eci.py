@@ -97,7 +97,8 @@ def compute_eci_pci(M_bin: sp.spmatrix) -> tuple[np.ndarray, np.ndarray]:
 
 
 class ECI:
-    """Scikit-learn-style estimator for Economic Complexity Index (ECI) and Product Complexity Index (PCI).
+    """Scikit-learn-style estimator for Economic Complexity Index (ECI) and
+    Product Complexity Index (PCI).
 
     This estimator computes ECI/PCI via the spectral/linear method (second eigenvector
     of the country-country projection matrix). It serves as a baseline for comparison

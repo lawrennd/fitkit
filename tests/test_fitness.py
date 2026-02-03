@@ -192,4 +192,4 @@ def test_fitness_estimator_parameters():
 
     assert fc.n_iter == 500
     assert fc.tol == 1e-12
-    assert fc.verbose == True
+    assert fc.verbose
