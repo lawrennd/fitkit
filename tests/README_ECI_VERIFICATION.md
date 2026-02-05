@@ -1,6 +1,7 @@
 # ECI Implementation Verification Report
 
 **Date**: 2026-02-05  
+**Updated**: 2026-02-05 (corrected to use log(Fitness) for proper comparison)  
 **Status**: ✅ **ECI IMPLEMENTATION IS CORRECT**  
 **Issue Reported**: Low correlation between ECI and Fitness on random matrices
 
@@ -13,9 +14,11 @@ The ECI (Economic Complexity Index) implementation is **mathematically correct**
 ### Key Finding
 
 **Your hypothesis** was: "Random matrices should show high ECI-Fitness correlation"  
-**Reality**: Random matrices show **LOW** correlation (r ≈ 0.13)
+**Reality**: Random matrices show **LOW** correlation (r ≈ 0.16 with log(Fitness))
 
-**Why?** ECI is a linear spectral method that **requires nested structure** to be meaningful. On random (unstructured) matrices, ECI essentially becomes noise.
+**Why?** ECI is a linear spectral method that **requires nested structure** to be meaningful. On random (unstructured) matrices, ECI essentially becomes noise, while log(Fitness) remains strongly correlated with diversification (r ≈ 0.99).
+
+**Important**: We use **log(Fitness)** for meaningful comparison because Fitness is a multiplicative/exponential quantity, while ECI and diversification are on linear scales.
 
 ---
 
@@ -23,33 +26,35 @@ The ECI (Economic Complexity Index) implementation is **mathematically correct**
 
 ### 1. Nested Matrices (ECI's Design Use Case) ✓
 
+**Note**: Using log(Fitness) for meaningful comparison with linear scales.
+
 | Metric Pair | Correlation |
 |-------------|-------------|
 | ECI ↔ Diversification | **0.94** (excellent!) |
-| Fitness ↔ Diversification | 0.57 (moderate) |
-| ECI ↔ Fitness | 0.67 (moderate agreement) |
+| log(Fitness) ↔ Diversification | **0.99** (excellent!) |
+| ECI ↔ log(Fitness) | **0.95** (very high agreement!) |
 
-**Interpretation**: ECI works **beautifully** on nested matrices, as it was designed to.
+**Interpretation**: Both ECI and log(Fitness) work **beautifully** on nested matrices, as both capture the hierarchical structure.
 
 ### 2. Random Matrices (No Structure) ⚠️
 
 | Metric Pair | Correlation |
 |-------------|-------------|
-| ECI ↔ Diversification | **0.15** (very low!) |
-| Fitness ↔ Diversification | 0.80 (high) |
-| ECI ↔ Fitness | **0.13** (very low!) |
+| ECI ↔ Diversification | **0.15** (very low - ECI becomes noise!) |
+| log(Fitness) ↔ Diversification | **0.99** (very high - robust!) |
+| ECI ↔ log(Fitness) | **0.16** (very low - they disagree!) |
 
-**Interpretation**: ECI **struggles** on random data. Fitness remains robust.
+**Interpretation**: ECI **struggles** on random data (becomes noise-like). log(Fitness) remains **robust** and strongly correlated with diversification.
 
 ### 3. Modular Matrices (Block Structure)
 
 | Metric Pair | Correlation |
 |-------------|-------------|
 | ECI ↔ Diversification | 0.46 (moderate) |
-| Fitness ↔ Diversification | 0.93 (very high) |
-| ECI ↔ Fitness | 0.30 (low) |
+| log(Fitness) ↔ Diversification | **0.99** (very high!) |
+| ECI ↔ log(Fitness) | 0.48 (moderate) |
 
-**Interpretation**: Fitness is more **robust** across different structures.
+**Interpretation**: log(Fitness) is more **robust** across different structures, maintaining very high correlation with diversification even on modular data.
 
 ---
 

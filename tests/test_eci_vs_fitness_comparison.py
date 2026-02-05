@@ -27,25 +27,26 @@ def test_eci_vs_fitness_on_nested_matrix():
     F, Q, hist = fitness_complexity(M)
     
     diversification = np.asarray(M.sum(axis=1)).ravel()
+    log_F = np.log(F)
     
     corr_eci_div = np.corrcoef(eci, diversification)[0, 1]
-    corr_F_div = np.corrcoef(F, diversification)[0, 1]
-    corr_eci_F = np.corrcoef(eci, F)[0, 1]
+    corr_logF_div = np.corrcoef(log_F, diversification)[0, 1]
+    corr_eci_logF = np.corrcoef(eci, log_F)[0, 1]
     
     print("\n=== Nested Matrix Results ===")
-    print(f"Correlation(ECI, Diversification):     {corr_eci_div:.4f}")
-    print(f"Correlation(Fitness, Diversification): {corr_F_div:.4f}")
-    print(f"Correlation(ECI, Fitness):             {corr_eci_F:.4f}")
+    print(f"Correlation(ECI, Diversification):         {corr_eci_div:.4f}")
+    print(f"Correlation(log(Fitness), Diversification): {corr_logF_div:.4f}")
+    print(f"Correlation(ECI, log(Fitness)):             {corr_eci_logF:.4f}")
     
     # For nested matrices, ECI should correlate VERY highly with diversification
     # (This is ECI's design use case)
     assert corr_eci_div > 0.85, f"ECI should correlate strongly with diversification on nested matrix, got {corr_eci_div:.4f}"
     
-    # Fitness has moderate correlation (it captures more than just degree)
-    assert corr_F_div > 0.4, f"Fitness should have moderate correlation with diversification, got {corr_F_div:.4f}"
+    # log(Fitness) should correlate highly with diversification (Fitness is multiplicative)
+    assert corr_logF_div > 0.4, f"log(Fitness) should have moderate correlation with diversification, got {corr_logF_div:.4f}"
     
     # They should correlate moderately with each other on nested matrices
-    assert corr_eci_F > 0.5, f"ECI and Fitness should correlate moderately on nested matrix, got {corr_eci_F:.4f}"
+    assert corr_eci_logF > 0.5, f"ECI and log(Fitness) should correlate moderately on nested matrix, got {corr_eci_logF:.4f}"
 
 
 def test_eci_vs_fitness_on_random_matrix():
@@ -61,15 +62,16 @@ def test_eci_vs_fitness_on_random_matrix():
     F, Q, hist = fitness_complexity(M)
     
     diversification = np.asarray(M.sum(axis=1)).ravel()
+    log_F = np.log(F)
     
     corr_eci_div = np.corrcoef(eci, diversification)[0, 1]
-    corr_F_div = np.corrcoef(F, diversification)[0, 1]
-    corr_eci_F = np.corrcoef(eci, F)[0, 1]
+    corr_logF_div = np.corrcoef(log_F, diversification)[0, 1]
+    corr_eci_logF = np.corrcoef(eci, log_F)[0, 1]
     
     print("\n=== Random Matrix Results ===")
-    print(f"Correlation(ECI, Diversification):     {corr_eci_div:.4f}")
-    print(f"Correlation(Fitness, Diversification): {corr_F_div:.4f}")
-    print(f"Correlation(ECI, Fitness):             {corr_eci_F:.4f}")
+    print(f"Correlation(ECI, Diversification):         {corr_eci_div:.4f}")
+    print(f"Correlation(log(Fitness), Diversification): {corr_logF_div:.4f}")
+    print(f"Correlation(ECI, log(Fitness)):             {corr_eci_logF:.4f}")
     
     # Document the actual behavior (no strong assertions here)
     # The random matrix case is precisely what we're trying to understand
@@ -95,15 +97,16 @@ def test_eci_vs_fitness_on_modular_matrix():
     F, Q, hist = fitness_complexity(M)
     
     diversification = np.asarray(M.sum(axis=1)).ravel()
+    log_F = np.log(F)
     
     corr_eci_div = np.corrcoef(eci, diversification)[0, 1]
-    corr_F_div = np.corrcoef(F, diversification)[0, 1]
-    corr_eci_F = np.corrcoef(eci, F)[0, 1]
+    corr_logF_div = np.corrcoef(log_F, diversification)[0, 1]
+    corr_eci_logF = np.corrcoef(eci, log_F)[0, 1]
     
     print("\n=== Modular Matrix Results ===")
-    print(f"Correlation(ECI, Diversification):     {corr_eci_div:.4f}")
-    print(f"Correlation(Fitness, Diversification): {corr_F_div:.4f}")
-    print(f"Correlation(ECI, Fitness):             {corr_eci_F:.4f}")
+    print(f"Correlation(ECI, Diversification):         {corr_eci_div:.4f}")
+    print(f"Correlation(log(Fitness), Diversification): {corr_logF_div:.4f}")
+    print(f"Correlation(ECI, log(Fitness)):             {corr_eci_logF:.4f}")
 
 
 def test_eci_vs_fitness_summary():
@@ -121,36 +124,41 @@ def test_eci_vs_fitness_summary():
     print("SUMMARY")
     print("=" * 70)
     print("""
-Key Findings:
+Key Findings (using log(Fitness) for meaningful comparison with linear scales):
 
 1. NESTED MATRICES (the use case ECI was designed for):
    - ECI ↔ Diversification: ~0.94 (VERY HIGH) ✓ ECI works great!
-   - Fitness ↔ Diversification: ~0.57 (moderate - captures more than degree)
-   - ECI ↔ Fitness: ~0.67 (moderate agreement)
+   - log(Fitness) ↔ Diversification: ~0.99 (VERY HIGH) ✓ Fitness captures nested structure!
+   - ECI ↔ log(Fitness): ~0.95 (VERY HIGH agreement)
 
 2. RANDOM MATRICES (no structure):
    - ECI ↔ Diversification: ~0.15 (VERY LOW) ⚠️ ECI struggles!
-   - Fitness ↔ Diversification: ~0.80 (high - still meaningful)
-   - ECI ↔ Fitness: ~0.13 (VERY LOW - they disagree)
+   - log(Fitness) ↔ Diversification: ~0.99 (VERY HIGH - still meaningful)
+   - ECI ↔ log(Fitness): ~0.16 (VERY LOW - they disagree)
 
 3. MODULAR MATRICES (block structure):
    - ECI ↔ Diversification: ~0.46 (moderate)
-   - Fitness ↔ Diversification: ~0.93 (VERY HIGH) ✓ Fitness robust!
-   - ECI ↔ Fitness: ~0.30 (low agreement)
+   - log(Fitness) ↔ Diversification: ~0.99 (VERY HIGH) ✓ Fitness robust!
+   - ECI ↔ log(Fitness): ~0.48 (moderate agreement)
 
 Interpretation:
 - ✓ ECI implementation is CORRECT - it works beautifully on nested matrices
 - ✗ ECI is highly STRUCTURE-DEPENDENT - requires nesting to be meaningful
-- ✓ Fitness is MORE ROBUST - works well across different matrix structures
+- ✓ Fitness is MORE ROBUST - log(Fitness) correlates ~0.99 with diversification across all structures
+- ✓ Using log(Fitness) reveals that Fitness is essentially a smoothed, multiplicative version of diversification
 - The linear (spectral) nature of ECI makes it brittle on non-nested data
 - The nonlinear (fixed point) nature of Fitness makes it more adaptable
 
 Your Original Hypothesis:
 "Random matrices should show high ECI-Fitness correlation"
 
-**FINDING**: This hypothesis is FALSE. Random matrices show LOW correlation (r≈0.13)
-because ECI essentially becomes noise without nested structure, while Fitness
-remains meaningful by capturing degree-weighted complexity.
+**FINDING**: This hypothesis is FALSE. Random matrices show LOW correlation (r≈0.16)
+because ECI essentially becomes noise without nested structure, while log(Fitness)
+remains meaningful by strongly correlating with diversification (r≈0.99).
+
+Note on log(Fitness):
+Fitness is a multiplicative/exponential quantity, so log(Fitness) is the appropriate
+scale for correlation with linear measures like ECI and diversification.
 
 Recommendation:
 - ✓ The ECI implementation is working correctly
