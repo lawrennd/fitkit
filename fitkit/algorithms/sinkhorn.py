@@ -16,6 +16,7 @@ Provides both a scikit-learn-style transformer (SinkhornScaler) and a functional
 API (sinkhorn_masked) for convenience and backward compatibility.
 """
 
+import warnings
 import numpy as np
 import scipy.sparse as sp
 
@@ -62,11 +63,17 @@ def sinkhorn_masked(
             - "converged": True if converged within tolerance
 
     Raises:
-        ValueError: If marginals are infeasible (e.g., positive mass on isolated nodes).
+        ValueError: If all nodes are isolated (no feasible solution exists).
+
+    Warnings:
+        UserWarning: If isolated nodes (zero row/column degree) have positive marginals,
+                    a warning is issued and marginals are auto-corrected to zero.
 
     Notes:
         - This implementation is **sparse-safe**: it never densifies K or W.
         - Row and column marginals are automatically normalized to have equal total mass.
+        - **Auto-correction**: Isolated nodes (zero support) have their marginals set to zero
+          automatically with a warning, making the problem feasible.
         - Convergence is typically fast (tens to hundreds of iterations) for feasible problems.
         - If the support graph is disconnected, the solution may not be unique.
 
@@ -91,12 +98,34 @@ def sinkhorn_masked(
         c = c * (rs / cs)
 
     # Feasibility check: isolated nodes with positive mass are infeasible
+    # We auto-correct by setting marginals to zero for isolated nodes
     row_deg = np.asarray(K.sum(axis=1)).ravel()
     col_deg = np.asarray(K.sum(axis=0)).ravel()
-    if np.any((row_deg == 0) & (r > 0)):
-        raise ValueError("Infeasible (r>0 on a row with zero support)")
-    if np.any((col_deg == 0) & (c > 0)):
-        raise ValueError("Infeasible (c>0 on a col with zero support)")
+    
+    n_infeasible_rows = np.sum((row_deg == 0) & (r > 0))
+    n_infeasible_cols = np.sum((col_deg == 0) & (c > 0))
+    
+    if n_infeasible_rows > 0 or n_infeasible_cols > 0:
+        warnings.warn(
+            f"Sinkhorn: Found {n_infeasible_rows} isolated rows and {n_infeasible_cols} "
+            f"isolated columns with positive marginal mass. Automatically setting their "
+            f"marginals to zero to make the problem feasible.",
+            UserWarning,
+            stacklevel=2
+        )
+        # Auto-correct: set marginals to zero for isolated nodes
+        r = r.copy()
+        c = c.copy()
+        r[row_deg == 0] = 0.0
+        c[col_deg == 0] = 0.0
+        
+        # Renormalize after correction
+        rs = float(r.sum())
+        cs = float(c.sum())
+        if rs <= 0 or cs <= 0:
+            raise ValueError("After removing isolated nodes, remaining marginals have no mass")
+        if abs(rs - cs) > 1e-12 * max(rs, cs):
+            c = c * (rs / cs)
 
     # Initialize scaling factors
     u = np.ones(K.shape[0], dtype=float)

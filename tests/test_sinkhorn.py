@@ -105,7 +105,7 @@ def test_sinkhorn_normalization():
 
 
 def test_sinkhorn_infeasible_isolated_row():
-    """Test that Sinkhorn raises error for isolated row with positive mass."""
+    """Test that Sinkhorn auto-corrects isolated row with positive mass."""
     # Create matrix with isolated row
     data = [1.0, 1.0, 1.0]
     row = [0, 1, 1]  # Row 2 is isolated (no edges)
@@ -116,12 +116,17 @@ def test_sinkhorn_infeasible_isolated_row():
     r = np.array([1.0, 2.0, 1.0])  # Row 2 has mass 1.0 but no edges!
     c = np.array([3.0, 1.0])
 
-    with pytest.raises(ValueError, match="Infeasible.*row with zero support"):
-        sinkhorn_masked(M, r, c, n_iter=100)
+    # Should issue a warning and auto-correct
+    with pytest.warns(UserWarning, match="Found 1 isolated rows"):
+        u, v, W, history = sinkhorn_masked(M, r, c, n_iter=100)
+    
+    # Should succeed after auto-correction
+    assert history["converged"]
+    assert W.shape == M.shape
 
 
 def test_sinkhorn_infeasible_isolated_col():
-    """Test that Sinkhorn raises error for isolated column with positive mass."""
+    """Test that Sinkhorn auto-corrects isolated column with positive mass."""
     # Create matrix with isolated column
     data = [1.0, 1.0, 1.0]
     row = [0, 1, 1]
@@ -132,8 +137,13 @@ def test_sinkhorn_infeasible_isolated_col():
     r = np.array([1.0, 2.0, 0.0])
     c = np.array([2.0, 1.0, 0.5])  # Column 2 has mass 0.5 but no edges!
 
-    with pytest.raises(ValueError, match="Infeasible.*col with zero support"):
-        sinkhorn_masked(M, r, c, n_iter=100)
+    # Should issue a warning and auto-correct
+    with pytest.warns(UserWarning, match="Found 0 isolated rows and 1 isolated columns"):
+        u, v, W, history = sinkhorn_masked(M, r, c, n_iter=100)
+    
+    # Should succeed after auto-correction
+    assert history["converged"]
+    assert W.shape == M.shape
 
 
 def test_sinkhorn_shape_mismatch():
