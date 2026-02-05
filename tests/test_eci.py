@@ -19,17 +19,24 @@ def test_eci_basic():
 
 
 def test_eci_standardization():
-    """Test that ECI/PCI are standardized (mean 0, std 1)."""
+    """Test that ECI/PCI are standardized (mean 0, std 1).
+    
+    Note: Standardization is computed on connected nodes only (ignoring NaN).
+    """
     bundle = create_small_fixture()
     eci, pci = compute_eci_pci(bundle.matrix)
 
+    # Remove any NaN values before computing statistics
+    eci_valid = eci[~np.isnan(eci)]
+    pci_valid = pci[~np.isnan(pci)]
+    
     # Mean should be close to 0
-    assert np.abs(eci.mean()) < 1e-10
-    assert np.abs(pci.mean()) < 1e-10
+    assert np.abs(eci_valid.mean()) < 1e-10
+    assert np.abs(pci_valid.mean()) < 1e-10
 
     # Std should be close to 1
-    assert np.abs(eci.std(ddof=0) - 1.0) < 1e-10
-    assert np.abs(pci.std(ddof=0) - 1.0) < 1e-10
+    assert np.abs(eci_valid.std(ddof=0) - 1.0) < 1e-10
+    assert np.abs(pci_valid.std(ddof=0) - 1.0) < 1e-10
 
 
 def test_eci_sign_convention():
@@ -77,19 +84,31 @@ def test_eci_ranking():
 
 
 def test_eci_isolated_nodes():
-    """Test that ECI handles isolated nodes by dropping them."""
+    """Test that ECI handles isolated nodes by setting them to NaN."""
     # Create matrix with isolated node
     data = [1.0, 1.0, 1.0, 1.0]
     row = [0, 0, 1, 2]  # User 3 is isolated (no edges)
     col = [0, 1, 0, 1]
     M = sp.csr_matrix((data, (row, col)), shape=(4, 3), dtype=np.float64)
 
-    # Isolated nodes are dropped internally, so shapes reflect connected component
-    eci, pci = compute_eci_pci(M)
+    # Should issue a warning about isolated nodes
+    with pytest.warns(UserWarning, match="Dropped 1 isolated countries"):
+        eci, pci = compute_eci_pci(M)
 
-    # Check that computation completes without error
-    assert eci.shape[0] == 3  # 3 connected users (user 3 dropped)
-    assert pci.shape[0] == 2  # 2 connected words
+    # Output dimensions should match input
+    assert eci.shape[0] == 4  # All 4 users in output
+    assert pci.shape[0] == 3  # All 3 products in output (product 2 is isolated)
+    
+    # Isolated nodes should be NaN
+    assert np.isnan(eci[3])  # User 3 is isolated
+    assert np.isnan(pci[2])  # Product 2 is isolated
+    
+    # Connected nodes should have values
+    assert not np.isnan(eci[0])
+    assert not np.isnan(eci[1])
+    assert not np.isnan(eci[2])
+    assert not np.isnan(pci[0])
+    assert not np.isnan(pci[1])
 
 
 def test_eci_insufficient_structure():
