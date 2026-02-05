@@ -2,6 +2,13 @@
 # VibeSafe System Files (Auto-added during installation)
 # These are VibeSafe infrastructure - not your project content
 
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
 # VibeSafe virtual environment
 .venv-vibesafe/
 
