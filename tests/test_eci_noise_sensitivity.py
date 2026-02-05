@@ -358,6 +358,65 @@ def test_eci_community_structure():
     print(f"  ECI degradation:            {correlations_eci[0] - correlations_eci[-1]:.3f}")
     print(f"  log(F) degradation:         {correlations_logF[0] - correlations_logF[-1]:.3f}")
     print("\n⚠️  Modular/community structure breaks ECI more than simple shortcuts!")
+    
+    # Eigenvalue analysis
+    print("\n" + "-" * 70)
+    print("EIGENVALUE SPECTRUM DIAGNOSTIC")
+    print("-" * 70)
+    
+    def compute_spectral_gap(M):
+        """Compute spectral gap (λ₂/λ₃) of country-country matrix."""
+        kc = np.asarray(M.sum(axis=1)).ravel()
+        kp = np.asarray(M.sum(axis=0)).ravel()
+        kc_safe = np.where(kc > 0, kc, 1)
+        kp_safe = np.where(kp > 0, kp, 1)
+        M_normalized = M.toarray() / kc_safe[:, np.newaxis]
+        M_T_normalized = M.toarray().T / kp_safe[:, np.newaxis]
+        C = M_normalized @ M_T_normalized
+        eigenvalues = np.linalg.eigvalsh(C)
+        eigenvalues = np.sort(eigenvalues)[::-1]
+        return eigenvalues[1] / eigenvalues[2] if len(eigenvalues) > 2 else np.inf, eigenvalues[:5]
+    
+    # Test perfect nesting
+    M_nested = create_nested_matrix(n_rows=50, n_cols=75)
+    gap_nested, eigs_nested = compute_spectral_gap(M_nested)
+    
+    # Test 2 communities - recreate simpler version
+    M_data_2comm = []
+    for comm_idx in range(2):
+        for i in range(25):
+            row = np.zeros(75)
+            n_common = 15
+            row[:n_common] = (np.random.rand(n_common) > 0.3).astype(float)
+            comm_start = n_common + comm_idx * 30
+            comm_end = min(comm_start + int((i + 1) * 20 / 25), 75)
+            if comm_start < 75:
+                row[comm_start:comm_end] = 1
+            M_data_2comm.append(row)
+    M_2comm = sp.csr_matrix(np.array(M_data_2comm))
+    gap_2comm, eigs_2comm = compute_spectral_gap(M_2comm)
+    
+    print(f"\nPerfect Nesting:")
+    print(f"  Top eigenvalues: {eigs_nested[0]:.3f}, {eigs_nested[1]:.3f}, {eigs_nested[2]:.3f}, {eigs_nested[3]:.3f}, {eigs_nested[4]:.3f}")
+    print(f"  Spectral gap (λ₂/λ₃): {gap_nested:.2f}")
+    print(f"  Relative magnitudes: λ₃/λ₂={eigs_nested[2]/eigs_nested[1]:.2f}, λ₄/λ₂={eigs_nested[3]/eigs_nested[1]:.2f}")
+    
+    print(f"\n2 Communities:")
+    print(f"  Top eigenvalues: {eigs_2comm[0]:.3f}, {eigs_2comm[1]:.3f}, {eigs_2comm[2]:.3f}, {eigs_2comm[3]:.3f}, {eigs_2comm[4]:.3f}")
+    print(f"  Spectral gap (λ₂/λ₃): {gap_2comm:.2f}")
+    print(f"  Relative magnitudes: λ₃/λ₂={eigs_2comm[2]/eigs_2comm[1]:.2f}, λ₄/λ₂={eigs_2comm[3]/eigs_2comm[1]:.2f}")
+    
+    # Count significant eigenvalues (>20% of λ₂)
+    n_sig_nested = np.sum(eigs_nested > 0.2 * eigs_nested[1])
+    n_sig_2comm = np.sum(eigs_2comm > 0.2 * eigs_2comm[1])
+    
+    print(f"\nSignificant eigenvalues (>20% of λ₂):")
+    print(f"  Perfect nesting: {n_sig_nested} eigenvalue(s) → 1D structure")
+    print(f"  2 communities:   {n_sig_2comm} eigenvalues → {n_sig_2comm}D structure")
+    
+    print("\n⚠️  KEY DIAGNOSTIC: Multiple significant eigenvalues = community structure!")
+    print("    Wikipedia likely has 5-10+ significant eigenvalues (many specialist communities)")
+    print("    ECI uses only 1 dimension (λ₂) → Misses most of the structure!")
     print("=" * 70)
 
 
