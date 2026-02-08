@@ -553,14 +553,14 @@ None formally defined. This addresses user feedback about:
 
 **Remaining work**:
 - [x] Create `fitkit/community/` module structure
-- [ ] Implement `CommunityDetector` with iterative algorithm (2005 paper)
-- [ ] Implement elongated k-means (Mahalanobis radial distance)
-- [ ] Implement origin-detector termination criterion
+- [x] Implement `CommunityDetector` with iterative algorithm (2005 paper)
+- [x] Implement elongated k-means (Mahalanobis radial distance)
+- [x] Implement origin-detector termination criterion
 - [ ] Implement validation utilities (permutation, Cheeger, effective rank)
 - [ ] Add comprehensive tests (including validation tests)
 - [ ] Update notebook to use library (replace helper imports)
 - [ ] Remove prototype helper file after migration
-- [ ] Add docstrings and module documentation
+- [x] Add docstrings and module documentation (for CommunityDetector)
 
 ## References
 

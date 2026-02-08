@@ -47,8 +47,10 @@ References:
     Lawrence, N.D. (2026). "Conditional Likelihood Interpretation of Economic Fitness".
 """
 
-# Placeholder imports - will be implemented in subsequent tasks
-# from fitkit.community.detection import CommunityDetector
+# Core classes
+from fitkit.community.detection import CommunityDetector
+
+# Placeholder imports for analysis functions (will be implemented in subsequent tasks)
 # from fitkit.community.analysis import within_community_analysis, compare_global_vs_local
 # from fitkit.community.validation import (
 #     validate_eigengap,
@@ -58,8 +60,8 @@ References:
 # )
 
 __all__ = [
-    # Core classes (to be implemented)
-    # "CommunityDetector",
+    # Core classes
+    "CommunityDetector",
     # Analysis functions (to be implemented)
     # "within_community_analysis",
     # "compare_global_vs_local",
