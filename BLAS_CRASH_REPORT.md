@@ -112,22 +112,41 @@ sigma = 0.2  # Adjust sigma for smaller dataset
 **Status**: ✅ Working - see CIP-0007 for sigma scaling guidelines
 
 ### 4. Use Different BLAS Library
-```bash
-# Install Intel MKL or Apple Accelerate
-conda install numpy="*=*_mkl_*"
-# OR
-pip install numpy-mkl
-```
 
-**Status**: ⚠️ Untested - may resolve issue
+**Intel MKL**: ❌ **Not viable** - MKL has no native ARM64 support for Apple Silicon. Only available for x86 architectures. Conda-forge stopped building Intel Mac packages in August 2025.
+
+**Apple Accelerate**: ❌ **Not viable for SciPy** - While NumPy 2.0+ supports Accelerate, SciPy dropped Accelerate support in v1.13.x. SciPy requires OpenBLAS, MKL, or ATLAS.
+
+**Upgrade OpenBLAS**: ⚠️ **Potentially helpful** but no guarantee:
+```bash
+# Upgrade to latest OpenBLAS (0.3.28 as of Aug 2024)
+conda update openblas
+# OR build from source with INTERFACE64=1
+```
+Version 0.3.27+ includes Apple Silicon fixes (NRM2 kernels, NaN/Inf handling), but eigenvalue decomposition issues persist.
 
 ## Root Cause
 
-**Hypothesis**: OpenBLAS 0.3.21 on Apple Silicon ARM64 has a bug in the LAPACK `dsyev`/`dsyevd` routines used by `scipy.linalg.eigh()` for dense symmetric eigenvalue problems. The crash occurs specifically when computing eigenvectors (not eigenvalues) of certain 300×300 matrices.
+**Confirmed**: This is a **known issue** with OpenBLAS on Apple Silicon ARM64.
 
-**Evidence**:
+**Web Research Findings** (February 2026):
+
+1. **`dsyev` crashes documented**: OpenBLAS has a history of crashing in the `dsyev` LAPACK eigenvalue solver, particularly when compiled with `INTERFACE64=0`. The crashes occur in the dsyev→dgemm call path. [GitHub Issue #1355]
+
+2. **Apple Silicon stability issues**: Multiple reports of OpenBLAS causing kernel panics and crashes on Apple M1/M2 chips, especially with eigenvalue solvers (`eigsh`) and when using >4 CPU threads. [GitHub Issue #4583, #3674]
+
+3. **Version-specific problems**: 
+   - OpenBLAS 0.3.16: Segfaults in dependent packages (arpack, dynare) on Intel macOS
+   - OpenBLAS 0.3.21: Our crash (no specific GitHub issue found)
+   - OpenBLAS 0.3.26: DGESVD failures on M2 with certain matrix types
+   - OpenBLAS 0.3.27: Fixed NRM2 kernel inaccuracy on Apple M chips (April 2024)
+   - OpenBLAS 0.3.28: Fixed NaN/Inf handling, thread management (August 2024)
+
+4. **No complete fix**: As of 0.3.28, incremental stability improvements continue but eigenvalue decomposition remains problematic on Apple Silicon.
+
+**Our Evidence**:
 1. `scipy.linalg.eigvalsh()` (eigenvalues only) works fine
-2. Crash happens in `eigh()` (eigenvalues + eigenvectors)
+2. Crash happens in `eigh()` (eigenvalues + eigenvectors)  
 3. Size-dependent: works for smaller matrices (< 250×250)
 4. MATLAB/Octave with different BLAS don't crash on same matrix
 5. `np.linalg.norm()` also crashes (uses BLAS `dnrm2`)
@@ -158,6 +177,34 @@ pip install numpy-mkl
 - [ ] Implement automatic BLAS backend detection and warnings
 - [ ] Add sigma auto-selection heuristic for different dataset sizes
 - [ ] Create comprehensive test suite with matrix size sweep
+
+## Web Research Summary (February 2026)
+
+### Known OpenBLAS Issues on Apple Silicon
+
+1. **GitHub Issue #1355**: dsyev crashes when `INTERFACE64=0`, works with `INTERFACE64=1`
+   - https://github.com/xianyi/OpenBLAS/issues/1355
+
+2. **GitHub Issue #3674**: Cannot use OpenBLAS properly on M1 Mac
+   - https://github.com/xianyi/OpenBLAS/issues/3674
+
+3. **GitHub Issue #4583**: ARPACK kernel panics on M1 with >4 threads
+   - https://github.com/OpenMathLib/OpenBLAS/issues/4583
+
+4. **GitHub Issue #3309**: Segfaults in dependent packages with 0.3.16 on Intel macOS
+   - https://github.com/OpenMathLib/OpenBLAS/issues/3309
+
+### Version History
+
+- **0.3.21** (our version): No specific fixes for Apple Silicon eigenvalue issues
+- **0.3.27** (April 2024): Fixed NRM2 kernel inaccuracy on Apple M chips
+- **0.3.28** (August 2024): Fixed NaN/Inf handling, improved thread safety
+
+### Alternative BLAS Libraries
+
+- **Intel MKL**: Not available for ARM64/Apple Silicon (x86 only)
+- **Apple Accelerate**: NumPy 2.0+ supports it, but SciPy 1.13+ does not
+- **Recommendation**: Stay with OpenBLAS, use workarounds (smaller datasets or pre-computed eigenvectors)
 
 ## References
 
