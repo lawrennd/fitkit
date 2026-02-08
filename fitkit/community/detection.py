@@ -218,30 +218,33 @@ class CommunityDetector:
             # Use eigenvectors 0 to q-1 (Python 0-indexed)
             embedding = eigenvectors[:, 0:q]
             
-            # Run elongated k-means with q clusters + 1 origin detector
+            # Run elongated k-means with (q-1) non-origin clusters + 1 origin detector
+            # k = Dim - 1 as in MATLAB (e.g., Dim=2 → k=1 non-origin cluster)
             # Warm-start from previous iteration's centers if available
+            k = q - 1  # Number of non-origin clusters
             labels_temp, origin_empty, centers = self._elongated_kmeans_with_origin(
-                embedding, q, initial_centers=prev_centers, prev_embedding=prev_embedding
+                embedding, k, initial_centers=prev_centers, prev_embedding=prev_embedding
             )
             
             if origin_empty:
-                # Origin cluster is empty -> found correct number
+                # Origin cluster is empty -> found correct number (k clusters)
                 # Re-run without origin to get final labels
-                labels = self._elongated_kmeans(embedding, q, initial_centers=centers[:q])
-                n_communities = q
+                labels = self._elongated_kmeans(embedding, k, initial_centers=centers[:k])
+                n_communities = k
                 break
             
             # Origin captured points -> need more eigenvectors
             # Save centers and embedding for warm-start
-            prev_centers = centers[:q]  # Exclude origin
+            prev_centers = centers[:k]  # Exclude origin
             prev_embedding = embedding
             
             q += 1
             
             if q > max_q:
-                # Reached max, use current q
-                labels = self._elongated_kmeans(embedding, q - 1, initial_centers=prev_centers)
-                n_communities = q - 1
+                # Reached max, use max_q-1 non-origin clusters
+                final_k = max_q - 1
+                labels = self._elongated_kmeans(embedding, final_k, initial_centers=prev_centers)
+                n_communities = final_k
                 break
         
         if labels is None:
