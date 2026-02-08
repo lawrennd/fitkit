@@ -190,8 +190,9 @@ class CommunityDetector:
         prev_embedding = None  # Previous embedding for warm-start
         
         for iteration in range(max_q - 1):
-            # Extract q eigenvectors (skip first trivial one)
-            embedding = eigenvectors[:, 1:q+1]
+            # Extract q eigenvectors (MATLAB includes trivial eigenvector)
+            # Use eigenvectors 0 to q-1 (Python 0-indexed)
+            embedding = eigenvectors[:, 0:q]
             
             # Run elongated k-means with q clusters + 1 origin detector
             # Warm-start from previous iteration's centers if available
