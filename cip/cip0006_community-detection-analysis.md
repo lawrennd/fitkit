@@ -38,6 +38,8 @@ Add community detection capabilities to the `fitkit` library core:
 
 **Key architectural decision**: Community detection is core functionality, not just a notebook helper. It belongs in the library proper, with tests and documentation.
 
+**Key theoretical advance**: The 2026 economic-fitness paper transforms the 2005 iterative algorithm from a heuristic into a principled geometric method by connecting it to diffusion maps, separation timescales, Cheeger bounds, and intrinsic dimensionality. This provides rigorous justification for the origin-detector approach and explains the complementarity revealed by within-community analysis (Morphology B).
+
 ## Motivation
 
 ### Problems to solve
@@ -103,11 +105,29 @@ Based on Sanguinetti, Lawrence & Laidler (2005) "Automatic Determination of the 
 3. **Configuration model null**: For bipartite networks, test against random matrices with same (k_c, k_p) distributions
 
 **Alternatives considered**:
-- Pure eigengap heuristic (original CIP draft): Too naive, no validation
-- Modularity maximization: Different objective, requires resolution tuning
-- Infomap: Assumes flow-based communities, less natural for capability networks
 
-**Trade-offs**: Iterative approach is more principled but requires more computation (multiple k-means runs). Worth it for statistical rigor.
+**A. Pure eigengap heuristic** (original CIP draft):
+- Find largest gap in eigenvalue spectrum, use k = argmax(Δᵢ) + 1
+- **Problem**: Arbitrary threshold, no validation, no statistical justification
+- **Verdict**: Rejected - too naive
+
+**B. Effective rank elbow detection**:
+- Compute R(t) = exp(-Σᵢ pᵢ log pᵢ) curve
+- Find elbow at t*, use that as dimensionality indicator
+- **Advantage**: Continuous, principled dimensionality diagnostic
+- **Problem**: Elbow detection itself requires thresholds or subjective judgment
+- **Verdict**: Use as **complementary diagnostic**, not primary method
+
+**C. Modularity maximization** (Louvain, etc.):
+- Different objective function (within vs between community edge density)
+- Requires resolution parameter tuning
+- **Verdict**: Different purpose - use for modularity-specific questions
+
+**D. Infomap**:
+- Flow-based communities using random walk compression
+- **Verdict**: Overkill, assumes directed/weighted, less natural for bipartite capability networks
+
+**Decision**: Use iterative algorithm (Sanguinetti 2005) as **primary method** with effective rank R(t) and validation tests (permutation, Cheeger) as **diagnostics**. The iterative approach is empirically validated, computationally reasonable, and now theoretically grounded via diffusion map interpretation.
 
 #### Elongated K-Means Details
 
@@ -124,6 +144,73 @@ where **M** = (1/λ)(I - **c**ᵢ**c**ᵢᵀ/||**c**ᵢ||²) + λ(**c**ᵢ**c**�
 - For center at origin, use Euclidean distance
 
 **Why this works**: Clusters in eigenvector space with insufficient dimensions appear as radial elongations. This metric makes them separable, and a center at the origin will only capture points if there's an unaccounted radial cluster.
+
+### Theoretical Foundation: Diffusion Maps and Intrinsic Dimensionality
+
+The 2026 economic-fitness paper provides deep theoretical justification for why the iterative algorithm works:
+
+#### 1. Higher Eigenvectors as Geometric Modes
+
+From diffusion map theory, eigenvectors ψ₂, ψ₃, ψ₄, ... represent progressively finer-grained geometric modes of the network. When k-dimensional structure is projected into q < k dimensions:
+
+- **Missing modes manifest as radial structure**: The unaccounted eigenvectors create elongations along radial directions
+- **Origin-detector principle**: Points from an unaccounted cluster align along a radial direction not yet captured by the current q eigenvectors
+- **Iterative reveal**: Adding eigenvector q+1 "unfolds" that radial elongation into a new geometric mode
+
+This transforms the 2005 heuristic into a **principled geometric method**: you're progressively revealing the intrinsic dimensionality by testing when diffusion has exposed all persistent modes.
+
+#### 2. Spectral Gap as Intrinsic Dimensionality
+
+The gap λ₃ᴸ - λ₂ᴸ is not an arbitrary threshold but a **rigorous dimensionality diagnostic**:
+
+- **Large gap (>2-3)**: Capability space is effectively 1D, single nested hierarchy
+- **Small gap (<1.5)**: Multi-scale structure, need multiple eigenvectors for full embedding
+- **Physical interpretation**: Gap measures separation between the dominant mode and finer structure
+
+**Separation timescale**: t* ≈ 1/(λ₃ᴸ - λ₂ᴸ)
+
+- Low-conductance communities: persist and separate slowly (large t*, small gap)
+- Nested hierarchies: collapse quickly to ψ₂ mode (small t*, large gap)
+
+The algorithm terminates when adding dimensions wouldn't reveal structure that persists under diffusion.
+
+#### 3. Cheeger Inequality: Rigorous Bounds
+
+Cheeger's inequality: **λ₂ᴸ ≥ Φ²/2**
+
+This bounds the **mixing time**: τ_mix ≈ 1/λ₂ᴸ ≤ 2/Φ²
+
+**Implications**:
+- Low conductance Φ (bottlenecks) → long mixing times → communities persist under diffusion
+- Connection between spectral gaps and network cuts is **quantitative, not heuristic**
+- Validates detected communities: if Φ ≈ 0, the cut is real; if Φ is moderate, the small eigenvalue reflects 1D geometry, not communities
+
+#### 4. Morphology B: The Complementarity Pattern
+
+**Critical insight from economic-fitness paper**: What the algorithm detects is **complementary perspectives**, not disagreement:
+
+For modular networks (Morphology B):
+- **Global discordance**: Low r_global between ECI & Fitness (< 0.5)
+- **Within-community concordance**: High r_comm (> 0.8) when analyzed separately per community
+- **ψ₂ acts as block indicator**: Positive vs negative sign labels communities
+- **Fitness measures within-block capability**: Harmonic aggregation operates within communities
+
+**The origin-detector finds this structure**: When undercounted, different communities project onto radial directions. The origin center captures points from the unaccounted community, triggering the addition of another eigenvector that separates the blocks.
+
+#### 5. Effective Rank: Alternative to Fixed Thresholds
+
+Instead of arbitrary eigengap thresholds, use **effective rank** as diffusion time varies:
+
+**R(t) = exp(-Σᵢ pᵢ log pᵢ)** where pᵢ ∝ e^(-λᵢᴸ t)
+
+Plot R(t) vs diffusion time t:
+- **Sharp elbow at t*** → intrinsic dimensionality revealed (number of persistent modes)
+- Nested networks: steep elbow at small t (collapse to 1D quickly)
+- Multi-scale networks: gradual decay or multiple elbows at different timescales
+
+This provides a **data-driven alternative** to fixed thresholds: the elbow location reveals how many eigenvectors are needed.
+
+**Implementation consideration**: Computing R(t) curve could replace or supplement the iterative origin-detector test. Both approaches test intrinsic dimensionality, but R(t) is continuous while the algorithm is discrete.
 
 #### API Design
 
@@ -151,6 +238,18 @@ validation = validate_communities(M, labels, n_permutations=100)
 print(f"Eigengap p-value: {validation['eigengap_pvalue']:.3f}")
 print(f"Mean conductance: {validation['mean_conductance']:.3f}")
 print(f"Significant structure: {validation['is_significant']}")
+
+# Dimensionality diagnostic via effective rank
+from fitkit.community.validation import compute_effective_rank
+t_range = np.logspace(-2, 2, 100)
+R_t = compute_effective_rank(detector.eigenvalues_, t_range)
+
+# Plot R(t) curve to visualize dimensionality
+plt.plot(t_range, R_t)
+plt.xlabel('Diffusion time t')
+plt.ylabel('Effective rank R(t)')
+plt.title('Intrinsic Dimensionality via Effective Rank')
+# Look for elbow - sharp drop indicates dominant modes
 ```
 
 **Why sklearn-style**:
@@ -205,7 +304,28 @@ Generate random bipartite matrices with same degree sequences:
 - Test if observed eigengaps exceed null distribution
 - More appropriate for bipartite economic networks than generic permutation
 
-**Implementation priority**: Start with Solution 1 (permutation tests) and Solution 2 (Cheeger validation) as these are most straightforward. Add Solution 3 (configuration model) as refinement.
+**Solution 4: Effective rank for intrinsic dimensionality**
+
+Compute effective rank as function of diffusion time:
+
+R(t) = exp(-Σᵢ pᵢ log pᵢ) where pᵢ ∝ e^(-λᵢᴸ t)
+
+- Plot R(t) vs t
+- Sharp elbow at t* indicates intrinsic dimensionality k
+- Use k eigenvectors for embedding
+- More principled than arbitrary gap thresholds
+
+**Relationship to iterative algorithm**: 
+- Effective rank is **continuous diagnostic** (smooth curve)
+- Iterative algorithm is **discrete test** (active probing with origin detector)
+- Both test same concept: intrinsic dimensionality
+- R(t) could guide max_communities parameter or validate iterative results
+
+**Implementation priority**: 
+1. Core: Iterative algorithm (Solution from 2005 paper)
+2. Validation: Permutation tests (Solution 1) + Cheeger bounds (Solution 2)
+3. Diagnostic: Effective rank (Solution 4) as complementary dimensionality check
+4. Refinement: Configuration model (Solution 3) for bipartite-specific null
 
 #### 3. Data-Driven Diagnostics
 
@@ -305,6 +425,7 @@ fitkit/
    - [ ] `permutation_test_eigengap(M, k, n_permutations=100, preserve_degrees=True)`
    - [ ] `compute_conductance(M, labels)` - Cheeger conductance for each community
    - [ ] `configuration_model_null(M, n_samples=100)` - bipartite-specific null
+   - [ ] `compute_effective_rank(eigenvalues, t_range)` - R(t) curve for dimensionality
    - [ ] `validate_communities(M, labels)` - comprehensive validation report
 
 5. **Add tests** (`tests/test_community_detection.py`)
@@ -342,16 +463,36 @@ Fully backward compatible:
 
 ## Testing Strategy
 
-Manual testing via notebook execution:
-- Nested network: Should detect 1 community (no meaningful splits)
-- Modular network: Should detect 2 communities, show high within-community correlations
-- Core-periphery: May detect 2 communities (core vs periphery)
-- Multi-scale: May detect multiple communities based on eigengaps
+### Unit Tests (`tests/test_community_detection.py`)
 
-**Validation criteria**:
-- Community detection doesn't crash on edge cases
-- Within-community analysis shows interpretable results
+**Core functionality**:
+- Iterative algorithm converges (origin detector terminates correctly)
+- Elongated k-means behaves properly (radial vs Euclidean metrics)
+- Edge cases: small networks, degenerate matrices, no structure
+
+**Expected behaviors on synthetic networks**:
+- **Nested network**: Detects 1 community (origin remains empty from q=2)
+- **Modular network**: Detects 2 communities, origin captures points at q=2, empty at q=3
+- **Multi-scale network**: May detect multiple communities (q>2) based on eigengap persistence
+
+**Statistical validation tests**:
+- Permutation test: Known structure has p-value < 0.05, random network has p-value > 0.5
+- Cheeger bounds: Detected communities satisfy λ₂ᴸ ≥ Φ²/2
+- Effective rank: R(t) curve shows elbow consistent with detected k
+
+**Within-community analysis**:
+- Modular network: r_global < 0.5 but r_within > 0.8 (Morphology B pattern)
+- Nested network: r_global ≈ r_within (no community structure)
+
+### Integration Tests (notebook execution)
+
+Manual testing via `spectral_entropic_comparison.ipynb`:
+- All synthetic morphologies run without errors
 - Visualizations render correctly
+- Validation metrics are interpretable
+- Effective rank plots show expected elbows
+
+**Key validation**: For modular network, within-community correlations should be **substantially higher** than global correlation, validating the complementarity hypothesis.
 
 ## Related Requirements
 
@@ -361,25 +502,44 @@ None formally defined. This addresses user feedback about:
 
 ## Implementation Status
 
-**Current state**: Prototype exists in `examples/community_analysis_helpers.py` but needs proper integration.
+**Current state**: Prototype exists in `examples/community_analysis_helpers.py` with:
+- Basic eigengap heuristic (naive, no validation)
+- Simple k-means clustering (not elongated k-means)
+- Within-community analysis logic
+- Integrated into notebook cells 23-25
 
+**This prototype is architecturally wrong** - needs proper library integration and theoretical rigor.
+
+**Remaining work**:
 - [ ] Create `fitkit/community/` module structure
-- [ ] Implement `CommunityDetector` sklearn-style class
-- [ ] Implement `within_community_analysis()` utility
-- [ ] Add comprehensive tests
-- [ ] Update notebook to use library (not helpers)
-- [ ] Remove prototype helper file
-- [ ] Add documentation
+- [ ] Implement `CommunityDetector` with iterative algorithm (2005 paper)
+- [ ] Implement elongated k-means (Mahalanobis radial distance)
+- [ ] Implement origin-detector termination criterion
+- [ ] Implement validation utilities (permutation, Cheeger, effective rank)
+- [ ] Add comprehensive tests (including validation tests)
+- [ ] Update notebook to use library (replace helper imports)
+- [ ] Remove prototype helper file after migration
+- [ ] Add docstrings and module documentation
 
 ## References
 
 **Core algorithm**:
 - Sanguinetti, G., Laidler, J., & Lawrence, N. D. (2005). "Automatic determination of the number of clusters using spectral algorithms." *Proceedings of the 14th International Conference on Digital Signal Processing*, 717-721. [PDF](https://www.math.ucdavis.edu/~saito/data/clustering/clusterNumber.pdf) | [Code](https://github.com/lawrennd/spectral)
 
-**Theoretical foundations**:
+**Theoretical foundation** (transforms 2005 heuristic into principled method):
+- Lawrence, N. D. (2026). "Economic fitness and complexity: Spectral and entropic perspectives on bipartite networks." [Draft in progress: `economic-fitness/economic-fitness.tex`]
+  - Sections 3.5-3.7 provide diffusion map interpretation and geometric theory
+  - Section 3.8 explains Morphology B complementarity and within-community analysis
+  - Connects spectral gaps to separation timescales, Cheeger bounds, and effective rank
+
+**Foundational spectral theory**:
 - von Luxburg, U. (2007). "A tutorial on spectral clustering." *Statistics and Computing* 17(4), 395-416.
-- Newman, M. E. (2006). "Modularity and community structure in networks." *PNAS* 103(23), 8577-8582.
+- Coifman, R. R. & Lafon, S. (2006). "Diffusion maps." *Applied and Computational Harmonic Analysis* 21(1), 5-30.
+- Belkin, M. & Niyogi, P. (2003). "Laplacian eigenmaps for dimensionality reduction and data representation." *Neural Computation* 15(6), 1373-1396.
+
+**Graph cut theory**:
 - Cheeger, J. (1970). "A lower bound for the smallest eigenvalue of the Laplacian." *Problems in Analysis*, 195-199.
+- Newman, M. E. (2006). "Modularity and community structure in networks." *PNAS* 103(23), 8577-8582.
 
 **Economic complexity literature**:
 - Hidalgo & Hausmann (2009). "The building blocks of economic complexity." *PNAS* 106(26), 10570-10575.
@@ -393,9 +553,34 @@ None formally defined. This addresses user feedback about:
 
 ## Future Enhancements
 
-Potential extensions (not in scope for this CIP):
-1. Robustness analysis: Bootstrap resampling to assess community detection stability
-2. Hierarchical communities: Recursive application to detect nested structure
-3. Product-side communities: Analogous analysis for product space (via ψ₂ᴾ, ψ₃ᴾ, ...)
-4. Directed graphs: Extend to directed trade networks
-5. Temporal evolution: Track how communities change over time
+Potential extensions beyond initial implementation (not in scope for this CIP):
+
+**1. Robustness and stability**:
+- Bootstrap resampling to assess community detection stability
+- Consensus clustering across multiple parameter settings
+- Sensitivity analysis for λ_elongation parameter
+
+**2. Hierarchical structure**:
+- Recursive application within detected communities
+- Dendrogram construction from nested eigenvector splits
+- Multi-resolution analysis at different diffusion times
+
+**3. Product-side communities**:
+- Analogous detection using product eigenvectors (ψ₂ᴾ, ψ₃ᴾ, ...)
+- Product clusters as technological domains
+- Cross-tabulation: country communities × product communities
+
+**4. Temporal evolution**:
+- Track community membership changes over time
+- Detect community mergers, splits, emergence, dissolution
+- Relate to economic shocks and structural transformation
+
+**5. Alternative spectral methods**:
+- Heat kernel diffusion: K_t = exp(-tL) for continuous-time perspective
+- Multi-scale analysis: vary diffusion time t to reveal structure at different scales
+- Directed networks: left/right eigenvectors for asymmetric trade flows
+
+**6. Causal structure**:
+- Use community detection to identify natural experiments
+- Within-community comparisons as matched controls
+- Eigenvector discontinuities as potential policy boundaries
