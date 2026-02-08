@@ -78,47 +78,86 @@ A prototype implementation was created in `examples/community_analysis_helpers.p
 
 #### 1. Community Detection Approach
 
-**Chosen: Spectral clustering with eigengap heuristic**
+**Chosen: Iterative eigenvector algorithm with origin-detector validation**
 
-Uses k-means clustering on the eigenvector embedding (ψ₂, ψ₃, ..., ψₖ) where k is determined by the eigengap heuristic.
+Based on Sanguinetti, Lawrence & Laidler (2005) "Automatic Determination of the Number of Clusters using Spectral Algorithms".
 
-**Eigengap Heuristic Algorithm**:
-1. Compute Laplacian eigenvalues: λᴸᵢ = 1 - λᵢᵀ (where λᵢᵀ are transition matrix eigenvalues)
-2. Compute gaps: Δᵢ = λᴸᵢ₊₁ - λᴸᵢ for i ≥ 1 (skip trivial eigenvalue)
-3. Find largest gap: k* = argmax Δᵢ
-4. Number of communities: k = k* + 1
-5. Only use if gap is significant (>10% of λᴸ₁) to avoid over-fitting
+**Key insight from 2005 work**: When clusters are undercounted in eigenvector space, they appear as elongated radial structures. A test center at the origin will capture points if there's an unaccounted cluster.
 
-**Why this works**: In networks with k communities, the first k Laplacian eigenvalues are small (near 0), with a large gap before λᴸₖ₊₁. This is the spectral graph theory foundation.
+**Algorithm**:
+1. Start with q=2 eigenvectors
+2. Initialize q centers in detected clusters + 1 center at origin
+3. Run **elongated k-means** (Mahalanobis distance along radial directions)
+4. If origin cluster captures points → unaccounted cluster exists → increment q
+5. If origin cluster empty → found correct number of clusters → terminate
+
+**Why this is better than naive eigengap thresholds**:
+- Hard thresholds (e.g., "gap > 1.5") have no statistical justification
+- Don't account for network size, density, or random fluctuations
+- The iterative approach actively tests for additional structure
+- Origin-detector provides empirical validation at each step
+
+**Validation enhancements**:
+1. **Permutation tests**: Test eigengaps against null distribution from degree-preserving randomization
+2. **Cheeger bounds**: Validate detected communities via conductance φ(S) and Cheeger inequality
+3. **Configuration model null**: For bipartite networks, test against random matrices with same (k_c, k_p) distributions
 
 **Alternatives considered**:
-- Modularity maximization (Louvain): More complex, requires tuning resolution parameter
-- Infomap: Requires directed/weighted edges, overkill for demonstration
-- Manual k selection: Defeats purpose of automatic detection
+- Pure eigengap heuristic (original CIP draft): Too naive, no validation
+- Modularity maximization: Different objective, requires resolution tuning
+- Infomap: Assumes flow-based communities, less natural for capability networks
 
-**Trade-offs**: Eigengap heuristic is simple, principled, and aligns with spectral theory foundations already in the paper. May miss hierarchical structure, but that's acceptable for initial implementation.
+**Trade-offs**: Iterative approach is more principled but requires more computation (multiple k-means runs). Worth it for statistical rigor.
 
-#### API Design Alternatives
+#### Elongated K-Means Details
 
-**Option A: Sklearn-style class (RECOMMENDED)**:
+Key modification from standard k-means: distance metric that downweights radial direction, penalizes tangential direction.
+
+For center **c**ᵢ not near origin, distance from point **x** is:
+
+d²(**x**, **c**ᵢ) = (**x** - **c**ᵢ)ᵀ **M** (**x** - **c**ᵢ)
+
+where **M** = (1/λ)(I - **c**ᵢ**c**ᵢᵀ/||**c**ᵢ||²) + λ(**c**ᵢ**c**ᵢᵀ/||**c**ᵢ||²)
+
+- λ is elongation parameter (default 0.2)
+- Small λ → strong elongation along radial direction
+- For center at origin, use Euclidean distance
+
+**Why this works**: Clusters in eigenvector space with insufficient dimensions appear as radial elongations. This metric makes them separable, and a center at the origin will only capture points if there's an unaccounted radial cluster.
+
+#### API Design
+
+**Sklearn-style class** (consistent with CIP-0004):
 ```python
-detector = CommunityDetector(method='spectral', n_communities='auto')
+from fitkit.community import CommunityDetector
+from fitkit.community.validation import validate_communities
+
+# Detect communities
+detector = CommunityDetector(
+    method='iterative',           # Sanguinetti et al. algorithm
+    lambda_elongation=0.2,        # Radial elongation parameter
+    n_communities='auto',         # Origin-detector termination
+    max_communities=8
+)
 labels = detector.fit_predict(M)
-print(detector.n_communities_, detector.eigenvalues_)
+
+# Access diagnostics
+print(f"Found {detector.n_communities_} communities")
+print(f"Eigenvalues: {detector.eigenvalues_[:5]}")
+print(f"Iteration history: {detector.n_iterations_}")
+
+# Validate detected structure
+validation = validate_communities(M, labels, n_permutations=100)
+print(f"Eigengap p-value: {validation['eigengap_pvalue']:.3f}")
+print(f"Mean conductance: {validation['mean_conductance']:.3f}")
+print(f"Significant structure: {validation['is_significant']}")
 ```
 
-**Pros**: Consistent with `ECI` and `FitnessComplexity`, stateful, exposes diagnostics
-**Cons**: More boilerplate for simple use
-
-**Option B: Functional API**:
-```python
-labels, n_communities = detect_communities(M, method='spectral')
-```
-
-**Pros**: Simpler for one-off use
-**Cons**: Inconsistent with fitkit patterns, harder to extend, diagnostics awkward
-
-**Decision**: Use Option A (sklearn-style) for consistency with existing fitkit API conventions. This is the pattern established by CIP-0004.
+**Why sklearn-style**:
+- Consistent with `ECI` and `FitnessComplexity` 
+- Stateful - exposes iteration history, eigenvalues, validation scores
+- Extensible - can add new methods, validation approaches
+- Established pattern in fitkit (CIP-0004)
 
 #### 2. Within-Community Analysis
 
@@ -129,6 +168,44 @@ For each detected community:
 4. Calculate correlation within community
 
 **Key insight**: This properly accounts for community-specific product spaces and avoids artifacts from cross-community connections.
+
+#### 3. Statistical Validation Methods
+
+**Problem**: Need to distinguish real community structure from random fluctuations.
+
+**Solution 1: Permutation tests for eigengaps**
+```python
+# Compute observed eigengap
+observed_gap = eigenvalues[k] - eigenvalues[k+1]
+
+# Generate null distribution via degree-preserving randomization
+null_gaps = []
+for _ in range(n_permutations):
+    M_null = randomize_bipartite(M, preserve_degrees=True)
+    eigs_null = compute_eigenvalues(M_null)
+    null_gaps.append(eigs_null[k] - eigs_null[k+1])
+
+# Test significance
+p_value = (null_gaps >= observed_gap).mean()
+```
+
+**Solution 2: Cheeger bounds for community quality**
+
+For each detected community S:
+- Compute conductance: φ(S) = cut(S, S̄) / min(vol(S), vol(S̄))
+- Cheeger inequality: λ₂ ≤ 2φ ≤ √(2λ₂)
+- High conductance (φ > 0.5) indicates weak community structure
+- Compare observed φ against null model
+
+**Solution 3: Configuration model null for bipartite networks**
+
+Generate random bipartite matrices with same degree sequences:
+- Sample matrices preserving (k_c, k_p) distributions
+- Compute eigenvalue spectra under null
+- Test if observed eigengaps exceed null distribution
+- More appropriate for bipartite economic networks than generic permutation
+
+**Implementation priority**: Start with Solution 1 (permutation tests) and Solution 2 (Cheeger validation) as these are most straightforward. Add Solution 3 (configuration model) as refinement.
 
 #### 3. Data-Driven Diagnostics
 
@@ -210,36 +287,50 @@ fitkit/
    - [ ] Add to `fitkit/__init__.py` imports
 
 2. **Implement `CommunityDetector` class** (`fitkit/community/detection.py`)
-   - [ ] `__init__(method='spectral', n_communities='auto', max_communities=5)`
-   - [ ] `fit(M)` - compute eigenvalues/vectors, detect communities
+   - [ ] `__init__(method='iterative', n_communities='auto', max_communities=8, lambda_elongation=0.2)`
+   - [ ] `fit(M)` - iterative eigenvector algorithm with origin detector
    - [ ] `fit_predict(M)` - fit and return labels
+   - [ ] `_elongated_kmeans()` - Mahalanobis k-means with radial elongation
    - [ ] `labels_` attribute - community assignments after fitting
    - [ ] `n_communities_` attribute - number detected
    - [ ] `eigenvalues_` attribute - for diagnostics
+   - [ ] `validation_scores_` - dictionary of validation metrics
 
 3. **Implement analysis utilities** (`fitkit/community/analysis.py`)
    - [ ] `within_community_analysis(M, labels, metrics=['eci', 'fitness'])`
    - [ ] Returns per-community statistics (correlations, sizes, etc.)
    - [ ] Handles edge cases (small communities, sparse networks)
 
-4. **Add tests** (`tests/test_community_detection.py`)
-   - [ ] Test on nested network (should detect 1 community)
-   - [ ] Test on modular network (should detect 2+ communities)
-   - [ ] Test eigengap heuristic behavior
+4. **Implement validation utilities** (`fitkit/community/validation.py`)
+   - [ ] `permutation_test_eigengap(M, k, n_permutations=100, preserve_degrees=True)`
+   - [ ] `compute_conductance(M, labels)` - Cheeger conductance for each community
+   - [ ] `configuration_model_null(M, n_samples=100)` - bipartite-specific null
+   - [ ] `validate_communities(M, labels)` - comprehensive validation report
+
+5. **Add tests** (`tests/test_community_detection.py`)
+   - [ ] Test iterative algorithm on nested network (should detect 1 community)
+   - [ ] Test on modular network (should detect 2 communities, validate with high within-r)
+   - [ ] Test origin-detector termination criterion
+   - [ ] Test elongated k-means convergence
    - [ ] Test within-community analysis
-   - [ ] Test edge cases (small networks, degenerate cases)
+   - [ ] Test permutation test (known structure should be significant)
+   - [ ] Test conductance computation
+   - [ ] Test edge cases (small networks, degenerate cases, no structure)
 
-5. **Update notebook** (`examples/spectral_entropic_comparison.ipynb`)
+6. **Update notebook** (`examples/spectral_entropic_comparison.ipynb`)
    - [ ] Import from `fitkit.community`
-   - [ ] Add community detection demonstration section
-   - [ ] Show within-community analysis
+   - [ ] Demonstrate iterative community detection on modular network
+   - [ ] Show validation results (permutation tests, conductance)
+   - [ ] Compare global vs within-community correlations
    - [ ] Replace rigid diagnostic thresholds with qualitative patterns
-   - [ ] Add visualization of community structure
+   - [ ] Visualize: communities in eigenvector space, eigenvalue spectrum with gaps
+   - [ ] Show elongated k-means behavior on toy example
 
-6. **Documentation**
-   - [ ] Docstrings for all public methods
+7. **Documentation**
+   - [ ] Docstrings for all public methods (include math notation for elongated distance)
    - [ ] Usage example in module docstring
-   - [ ] Update README if appropriate
+   - [ ] Document validation interpretation (p-values, conductance thresholds)
+   - [ ] Reference Sanguinetti, Lawrence & Laidler (2005) paper
 
 ## Backward Compatibility
 
@@ -282,9 +373,13 @@ None formally defined. This addresses user feedback about:
 
 ## References
 
+**Core algorithm**:
+- Sanguinetti, G., Laidler, J., & Lawrence, N. D. (2005). "Automatic determination of the number of clusters using spectral algorithms." *Proceedings of the 14th International Conference on Digital Signal Processing*, 717-721. [PDF](https://www.math.ucdavis.edu/~saito/data/clustering/clusterNumber.pdf) | [Code](https://github.com/lawrennd/spectral)
+
 **Theoretical foundations**:
 - von Luxburg, U. (2007). "A tutorial on spectral clustering." *Statistics and Computing* 17(4), 395-416.
 - Newman, M. E. (2006). "Modularity and community structure in networks." *PNAS* 103(23), 8577-8582.
+- Cheeger, J. (1970). "A lower bound for the smallest eigenvalue of the Laplacian." *Problems in Analysis*, 195-199.
 
 **Economic complexity literature**:
 - Hidalgo & Hausmann (2009). "The building blocks of economic complexity." *PNAS* 106(26), 10570-10575.
