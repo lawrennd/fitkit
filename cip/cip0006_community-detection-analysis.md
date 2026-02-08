@@ -3,7 +3,7 @@ author: "Neil Lawrence"
 created: "2026-02-06"
 id: "0006"
 last_updated: "2026-02-06"
-status: "Proposed"
+status: "Accepted"
 compressed: false
 related_requirements: []
 related_cips: []
@@ -20,7 +20,7 @@ title: "Community Detection and Within-Community Analysis for Spectral-Entropic 
 ## Status
 
 - [x] Proposed
-- [ ] Accepted
+- [x] Accepted
 - [ ] In Progress
 - [ ] Implemented
 - [ ] Closed
