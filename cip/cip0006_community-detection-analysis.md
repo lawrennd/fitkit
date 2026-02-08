@@ -127,7 +127,27 @@ Based on Sanguinetti, Lawrence & Laidler (2005) "Automatic Determination of the 
 - Flow-based communities using random walk compression
 - **Verdict**: Overkill, assumes directed/weighted, less natural for bipartite capability networks
 
-**Decision**: Use iterative algorithm (Sanguinetti 2005) as **primary method** with effective rank R(t) and validation tests (permutation, Cheeger) as **diagnostics**. The iterative approach is empirically validated, computationally reasonable, and now theoretically grounded via diffusion map interpretation.
+**E. Modern manifold-aware k-means** (2020+):
+- Manifold adaptive multiple kernel k-means explicitly incorporates local manifold structure
+- Uses multiple kernels + manifold regularization
+- **Advantage**: More sophisticated handling of nonlinear manifold geometry
+- **Problem**: Significantly more complex, requires kernel selection, unclear benefit for bipartite networks
+- **Verdict**: Overkill for initial implementation - the 2005 approach already operates in manifold (eigenvector) space
+
+**F. Kernel k-means equivalence** (theoretical insight):
+- Spectral clustering = kernel k-means in eigenvector embedding (Schölkopf, Wainwright et al. 2015)
+- The 2005 approach already exploits this: k-means in eigenvector space is manifold-aware
+- Elongated metric adapts to the radial structure of insufficient-dimensional projections
+- **Verdict**: Confirms the 2005 approach is already manifold-aware; modern variants add complexity without clear benefit for our use case
+
+**Decision**: Use iterative algorithm (Sanguinetti 2005) as **primary method** with effective rank R(t) and validation tests (permutation, Cheeger) as **diagnostics**. 
+
+**Rationale**: 
+- The 2005 approach is already manifold-aware (operates in eigenvector/diffusion space)
+- Empirically validated, computationally efficient
+- Now theoretically grounded via 2026 economic-fitness diffusion map interpretation
+- Modern manifold-adaptive variants add complexity without demonstrated benefit for bipartite networks
+- Can revisit if empirical results show inadequacy
 
 #### Elongated K-Means Details
 
@@ -211,6 +231,27 @@ Plot R(t) vs diffusion time t:
 This provides a **data-driven alternative** to fixed thresholds: the elbow location reveals how many eigenvectors are needed.
 
 **Implementation consideration**: Computing R(t) curve could replace or supplement the iterative origin-detector test. Both approaches test intrinsic dimensionality, but R(t) is continuous while the algorithm is discrete.
+
+#### 6. The 2005 Algorithm is Already Manifold-Aware
+
+**Important clarification**: The Sanguinetti-Lawrence-Laidler 2005 algorithm operates in **eigenvector space**, which is itself a **diffusion map embedding** of the manifold structure.
+
+**Key insight from spectral clustering theory** (Schölkopf, Wainwright et al. 2015):
+- Spectral clustering = kernel k-means in the eigenvector embedding
+- The eigenvectors ψ₂, ψ₃, ... provide a **nonlinear manifold embedding** of the original data
+- K-means in this space is **implicitly manifold-aware** - it's clustering on the diffusion geometry, not raw features
+
+**What the 2005 algorithm adds**:
+- **Elongated distance metric**: Adapts to the specific radial structure that appears when k-dimensional manifold structure is projected into q < k eigenvector dimensions
+- **Origin-detector**: Tests whether the current embedding dimension q has captured all persistent modes
+- **Iterative dimension increase**: Progressively reveals manifold dimensionality by adding eigenvectors
+
+**Modern manifold-adaptive k-means** (2020+): Incorporate local manifold structure explicitly via manifold regularization and multiple kernels. This is **more sophisticated** but:
+- The 2005 approach already operates on manifold (via eigenvector embedding)
+- Added sophistication may not help for bipartite networks where eigenvector structure is well-characterized
+- Computational cost increases significantly
+
+**Conclusion**: The 2005 algorithm is **not a naive k-means** - it's k-means on a diffusion map embedding with an adaptive metric for insufficient dimensions. Modern methods add bells and whistles, but the core principle (clustering in manifold coordinates) is already there.
 
 #### API Design
 
@@ -528,14 +569,21 @@ None formally defined. This addresses user feedback about:
 
 **Theoretical foundation** (transforms 2005 heuristic into principled method):
 - Lawrence, N. D. (2026). "Economic fitness and complexity: Spectral and entropic perspectives on bipartite networks." [Draft in progress: `economic-fitness/economic-fitness.tex`]
-  - Sections 3.5-3.7 provide diffusion map interpretation and geometric theory
-  - Section 3.8 explains Morphology B complementarity and within-community analysis
-  - Connects spectral gaps to separation timescales, Cheeger bounds, and effective rank
+  - §3.5-3.7: Diffusion map interpretation, ECI as geometric embedding, intrinsic dimensionality
+  - §3.8: Morphology classification, Cheeger diagnostics, spectral-entropic comparison plots
+  - Lines 489-518: Why higher eigenvectors matter, separation timescales, effective rank
+  - Lines 633-645: Morphology B complementarity - low global r but high within-community r
+  - **Key synthesis**: The 2005 algorithm's origin-detector iteratively reveals intrinsic dimensionality by testing when diffusion has exposed all persistent geometric modes. Elongated k-means exploits the radial projection structure that appears when multi-scale manifold geometry is embedded in insufficient dimensions.
 
 **Foundational spectral theory**:
 - von Luxburg, U. (2007). "A tutorial on spectral clustering." *Statistics and Computing* 17(4), 395-416.
 - Coifman, R. R. & Lafon, S. (2006). "Diffusion maps." *Applied and Computational Harmonic Analysis* 21(1), 5-30.
 - Belkin, M. & Niyogi, P. (2003). "Laplacian eigenmaps for dimensionality reduction and data representation." *Neural Computation* 15(6), 1373-1396.
+- Ng, A. Y., Jordan, M. I., & Weiss, Y. (2001). "On spectral clustering: Analysis and an algorithm." *NIPS* 14.
+
+**Manifold-aware clustering (modern perspective)**:
+- Schölkopf, B., Wainwright, M. J., & Yu, B. (2015). "The geometry of kernelized spectral clustering." *The Annals of Statistics* 43(2), 819-846. [Establishes spectral clustering = kernel k-means equivalence]
+- Liu, W., et al. (2020). "Manifold adaptive multiple kernel k-means for clustering." *IEEE Access* 8, 184389-184401. [Modern manifold-adaptive variant]
 
 **Graph cut theory**:
 - Cheeger, J. (1970). "A lower bound for the smallest eigenvalue of the Laplacian." *Problems in Analysis*, 195-199.
@@ -580,7 +628,14 @@ Potential extensions beyond initial implementation (not in scope for this CIP):
 - Multi-scale analysis: vary diffusion time t to reveal structure at different scales
 - Directed networks: left/right eigenvectors for asymmetric trade flows
 
-**6. Causal structure**:
+**6. Modern manifold-adaptive methods**:
+- Investigate manifold adaptive multiple kernel k-means (Liu et al. 2020)
+- Test if explicit manifold regularization improves detection on bipartite networks
+- Compare against iterative 2005 approach on challenging real datasets
+- **Question**: Does added sophistication help? Or is 2005 approach sufficient given bipartite structure?
+- Empirical evaluation needed before adding complexity
+
+**7. Causal structure**:
 - Use community detection to identify natural experiments
 - Within-community comparisons as matched controls
 - Eigenvector discontinuities as potential policy boundaries
