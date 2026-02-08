@@ -88,10 +88,22 @@ Implementation completed. Full iterative algorithm implemented with:
 - Edge case handling for small networks
 - Comprehensive docstrings
 
-Tested on synthetic modular networks:
-- With appropriate `max_communities` setting, achieves perfect detection
-- Example: 3-block network with 60 nodes, max_communities=3 → 100% purity
-- Algorithm is sensitive to `max_communities` parameter (expected behavior)
-- Users should tune based on domain knowledge
+**Current Status (2026-02-08):**
 
-Implementation follows Sanguinetti, Lawrence & Laidler (2005) algorithm with practical enhancements for robustness.
+Major fixes completed based on MATLAB reference (~/lawrennd/spectral/matlab/SpectralCluster.m):
+- ✓ Transition matrix: T = D_c^{-1} M D_p^{-1} M^T  
+- ✓ Elongated distance: d² = λ*||radial||² + (1/λ)*||tangential||²
+- ✓ Projection calculation: fixed broadcasting (was using np.outer incorrectly)
+- ✓ Warm-start: extend all previous centers correctly
+- ✓ Origin center: allowed to move during k-means convergence
+
+**Outstanding Issue:**
+Algorithm still over-segments on test cases (detects 5-15 communities instead of 2).
+- Tested on: perfect 2-block bipartite, modular connected, noisy networks
+- Origin detector never finds empty cluster → iterates to max_communities
+- Requires further debugging against MATLAB reference implementation
+
+**Next Steps:**
+- Run MATLAB reference on same test data to verify expected behavior
+- Compare intermediate values (centers, distances, assignments) step-by-step
+- May need to adjust initialization or convergence criteria
