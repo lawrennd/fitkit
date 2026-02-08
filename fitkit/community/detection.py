@@ -116,6 +116,9 @@ class CommunityDetector:
     def _compute_eigenvectors(self, X):
         """Compute eigenvectors of transition matrix for bipartite network.
         
+        Following economic-fitness.tex equation, computes eigenvectors of
+        T = D_c^{-1} M D_p^{-1} M^T
+        
         Parameters
         ----------
         X : sparse array
@@ -141,26 +144,15 @@ class CommunityDetector:
         # T = D_c^{-1} M D_p^{-1} M^T (country-country transitions)
         T = D_c_inv @ X @ D_p_inv @ X.T
         
-        # Compute eigenvectors
-        # Need to ensure k < n_samples - 1 for sparse eigs
-        n_eigs = min(self.max_communities + 2, n_samples - 2)
-        n_eigs = max(2, n_eigs)  # At least 2 eigenvectors
+        # Convert to dense and compute eigenvectors
+        T_dense = T.toarray() if sparse.issparse(T) else T
+        from scipy.linalg import eigh
+        eigenvalues, eigenvectors = eigh(T_dense)
         
-        # For very small networks, use dense eigendecomposition
-        if n_eigs >= n_samples - 2 or n_samples < 10:
-            from scipy.linalg import eigh
-            T_dense = T.toarray() if sparse.issparse(T) else T
-            eigenvalues, eigenvectors = eigh(T_dense)
-            # Sort by magnitude (descending)
-            idx = np.argsort(np.abs(eigenvalues))[::-1]
-            eigenvalues = eigenvalues[idx]
-            eigenvectors = eigenvectors[:, idx]
-        else:
-            eigenvalues, eigenvectors = eigs(T, k=n_eigs, which='LM')
-            # Sort by magnitude (descending)
-            idx = np.argsort(np.abs(eigenvalues))[::-1]
-            eigenvalues = np.real(eigenvalues[idx])
-            eigenvectors = np.real(eigenvectors[:, idx])
+        # Sort by magnitude (descending)
+        idx = np.argsort(np.abs(eigenvalues))[::-1]
+        eigenvalues = eigenvalues[idx]
+        eigenvectors = eigenvectors[:, idx]
         
         return eigenvalues, eigenvectors
     
@@ -194,29 +186,36 @@ class CommunityDetector:
         
         labels = None
         n_communities = 1
+        prev_centers = None  # For warm-starting
+        prev_embedding = None  # Previous embedding for warm-start
         
         for iteration in range(max_q - 1):
             # Extract q eigenvectors (skip first trivial one)
             embedding = eigenvectors[:, 1:q+1]
             
             # Run elongated k-means with q clusters + 1 origin detector
-            labels_temp, origin_empty = self._elongated_kmeans_with_origin(
-                embedding, q
+            # Warm-start from previous iteration's centers if available
+            labels_temp, origin_empty, centers = self._elongated_kmeans_with_origin(
+                embedding, q, initial_centers=prev_centers, prev_embedding=prev_embedding
             )
             
             if origin_empty:
                 # Origin cluster is empty -> found correct number
                 # Re-run without origin to get final labels
-                labels = self._elongated_kmeans(embedding, q)
+                labels = self._elongated_kmeans(embedding, q, initial_centers=centers[:q])
                 n_communities = q
                 break
             
             # Origin captured points -> need more eigenvectors
+            # Save centers and embedding for warm-start
+            prev_centers = centers[:q]  # Exclude origin
+            prev_embedding = embedding
+            
             q += 1
             
             if q > max_q:
                 # Reached max, use current q
-                labels = self._elongated_kmeans(embedding, q - 1)
+                labels = self._elongated_kmeans(embedding, q - 1, initial_centers=prev_centers)
                 n_communities = q - 1
                 break
         
@@ -227,7 +226,7 @@ class CommunityDetector:
         
         return labels, n_communities, iteration + 1
     
-    def _elongated_kmeans_with_origin(self, X, k):
+    def _elongated_kmeans_with_origin(self, X, k, initial_centers=None, prev_embedding=None):
         """Run elongated k-means with k clusters + 1 origin detector.
         
         Parameters
@@ -236,6 +235,10 @@ class CommunityDetector:
             Eigenvector embedding.
         k : int
             Number of clusters (excluding origin).
+        initial_centers : ndarray or None
+            Optional warm-start centers from previous iteration (shape k-1, q-1).
+        prev_embedding : ndarray or None
+            Previous eigenvector embedding (shape n_samples, q-1) for warm-start.
         
         Returns
         -------
@@ -243,11 +246,19 @@ class CommunityDetector:
             Cluster assignments (0 to k, where k is origin).
         origin_empty : bool
             True if origin cluster captured no points.
+        centers : ndarray
+            Final cluster centers (for warm-starting next iteration).
         """
         n_samples, q = X.shape
         
         # Initialize k+1 centers (k clusters + origin)
-        centers = self._initialize_centers(X, k)
+        if (initial_centers is not None and prev_embedding is not None 
+            and initial_centers.shape[0] == k - 1):
+            # Warm-start: find closest points to old centers and use their new coordinates
+            centers = self._extend_centers(X, initial_centers, k, prev_embedding)
+        else:
+            # Cold-start: initialize from scratch (k non-origin + 1 origin)
+            centers = self._initialize_centers(X, k, include_origin=True)
         
         # Elongated k-means iterations
         max_iter = 100
@@ -255,20 +266,18 @@ class CommunityDetector:
         
         for _ in range(max_iter):
             # Assignment step
+            # Use elongated distance metric
             labels = self._assign_to_nearest_center(X, centers)
             
-            # Update step
+            # Update step (all centers including origin can move)
             centers_new = np.zeros_like(centers)
             for i in range(k + 1):
                 mask = labels == i
                 if mask.sum() > 0:
                     centers_new[i] = X[mask].mean(axis=0)
                 else:
-                    # Empty cluster - reinitialize randomly
-                    centers_new[i] = X[np.random.randint(n_samples)]
-            
-            # Origin stays at origin
-            centers_new[k] = np.zeros(q)
+                    # Empty cluster - keep previous position
+                    centers_new[i] = centers[i]
             
             # Check convergence
             if np.linalg.norm(centers_new - centers) < tol:
@@ -281,9 +290,9 @@ class CommunityDetector:
         # if and only if there's an unaccounted cluster in the radial structure
         origin_empty = (labels == k).sum() == 0
         
-        return labels, origin_empty
+        return labels, origin_empty, centers
     
-    def _elongated_kmeans(self, X, k):
+    def _elongated_kmeans(self, X, k, initial_centers=None):
         """Run elongated k-means with k clusters (no origin).
         
         Parameters
@@ -292,6 +301,8 @@ class CommunityDetector:
             Eigenvector embedding.
         k : int
             Number of clusters.
+        initial_centers : ndarray or None
+            Optional initial centers (shape k, q) - excludes origin.
         
         Returns
         -------
@@ -301,7 +312,12 @@ class CommunityDetector:
         n_samples, q = X.shape
         
         # Initialize k centers
-        centers = self._initialize_centers(X, k, include_origin=False)
+        if initial_centers is not None and initial_centers.shape[0] == k:
+            # Use provided centers (already excludes origin)
+            centers = initial_centers.copy()
+        else:
+            # Initialize from scratch
+            centers = self._initialize_centers(X, k, include_origin=False)
         
         # Elongated k-means iterations
         max_iter = 100
@@ -329,6 +345,73 @@ class CommunityDetector:
         
         return labels
     
+    def _extend_centers(self, X, prev_centers, k, prev_embedding):
+        """Extend centers using warm-start from previous iteration.
+        
+        Following MATLAB approach:
+        1. Find which point was closest to each old center (in old embedding)
+        2. Use those points' coordinates in the NEW embedding as initial centers
+        3. Add origin as final center
+        
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, q)
+            Current eigenvector embedding (q dimensions).
+        prev_centers : ndarray of shape (k-1, q-1)
+            Centers from previous iteration (q-1 dimensions, excluding origin).
+        k : int
+            Number of non-origin clusters for this iteration.
+        prev_embedding : ndarray of shape (n_samples, q-1)
+            Previous eigenvector embedding.
+        
+        Returns
+        -------
+        centers : ndarray of shape (k+1, q)
+            Extended centers including origin.
+        """
+        n_samples, q = X.shape
+        
+        # Find point closest to each previous center (in old embedding space)
+        closest_points = []
+        n_prev_centers = prev_centers.shape[0]
+        for i in range(n_prev_centers):
+            distances = np.linalg.norm(prev_embedding - prev_centers[i], axis=1)
+            closest_idx = np.argmin(distances)
+            closest_points.append(closest_idx)
+        
+        # Use those points' coordinates in NEW embedding
+        new_centers = X[closest_points]
+        
+        # Add a NEW k-th center (for the additional cluster)
+        # Find point that is far from existing centers in new embedding
+        norms = np.linalg.norm(X, axis=1)
+        norms_sq = norms ** 2
+        
+        min_score = np.inf
+        best_idx = None
+        for i in range(n_samples):
+            if i in closest_points:
+                continue
+            # Compute projection ratio onto existing centers
+            S = 0.0
+            for center in new_centers:
+                projection = np.dot(X[i], center)
+                S += (projection ** 2) / (norms_sq[i] + 1e-10)
+            
+            if S < min_score:
+                min_score = S
+                best_idx = i
+        
+        if best_idx is None:
+            best_idx = np.random.randint(n_samples)
+        
+        new_kth_center = X[best_idx].reshape(1, -1)
+        
+        # Combine: n_prev_centers old centers + 1 new k-th center + origin
+        centers = np.vstack([new_centers, new_kth_center, np.zeros((1, q))])
+        
+        return centers
+    
     def _initialize_centers(self, X, k, include_origin=True):
         """Initialize cluster centers.
         
@@ -348,39 +431,46 @@ class CommunityDetector:
         """
         n_samples, q = X.shape
         norms = np.linalg.norm(X, axis=1)
+        norms_sq = norms ** 2 + 1e-10  # Avoid division by zero
         
+        # MATLAB-style initialization (only for k=2 initially)
         # First center: farthest from origin
         first_idx = np.argmax(norms)
         
         if k == 1:
             centers = X[first_idx:first_idx+1]
+        elif k == 2:
+            # Second center: minimize S = (projection onto first)^2 / norm^2
+            # This finds the point most perpendicular to the first center
+            projections = np.dot(X, X[first_idx])
+            S = (projections ** 2) / norms_sq
+            second_idx = np.argmin(S)
+            centers = np.array([X[first_idx], X[second_idx]])
         else:
-            # Subsequent centers: maximize distance while minimizing dot product
-            # (trying to spread around the sphere)
+            # For k > 2, use iterative selection (minimizing accumulated projections)
             selected = [first_idx]
             
             for _ in range(k - 1):
-                max_score = -np.inf
+                min_score = np.inf
                 best_idx = None
                 
                 for i in range(n_samples):
                     if i in selected:
                         continue
                     
-                    # Score: norm minus similarity to existing centers
-                    score = norms[i]
+                    # S = sum of (projection onto each existing center)^2 / norm^2
+                    S = 0.0
                     for j in selected:
-                        similarity = np.abs(np.dot(X[i], X[j])) / (norms[i] * norms[j] + 1e-10)
-                        score -= similarity
+                        projection = np.dot(X[i], X[j])
+                        S += (projection ** 2) / norms_sq[i]
                     
-                    if score > max_score:
-                        max_score = score
+                    if S < min_score:
+                        min_score = S
                         best_idx = i
                 
                 if best_idx is not None:
                     selected.append(best_idx)
                 else:
-                    # Fallback: random point
                     selected.append(np.random.randint(n_samples))
             
             centers = X[selected]
@@ -391,6 +481,36 @@ class CommunityDetector:
             centers = np.vstack([centers, origin])
         
         return centers
+    
+    def _assign_to_nearest_center_euclidean(self, X, centers):
+        """Assign points to nearest center using standard Euclidean distance.
+        
+        Used for disconnected components where eigenvectors are block indicators.
+        
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, q)
+            Points in eigenvector embedding.
+        centers : ndarray of shape (k, q)
+            Cluster centers (including origin as last center).
+        
+        Returns
+        -------
+        labels : ndarray of shape (n_samples,)
+            Cluster assignments.
+        """
+        n_samples = X.shape[0]
+        k = centers.shape[0]
+        
+        # Compute Euclidean distances to all centers
+        distances = np.zeros((n_samples, k))
+        for i in range(k):
+            distances[:, i] = np.linalg.norm(X - centers[i], axis=1)
+        
+        # Assign to nearest
+        labels = np.argmin(distances, axis=1)
+        
+        return labels
     
     def _assign_to_nearest_center(self, X, centers, include_origin=True):
         """Assign points to nearest center using elongated distance metric.
@@ -463,13 +583,14 @@ class CommunityDetector:
         c_hat = center / center_norm
         
         # Projection onto radial direction
-        radial_proj = np.outer(diff @ c_hat, c_hat)
+        radial_coeff = (diff @ c_hat).reshape(-1, 1)  # Shape (n_samples, 1)
+        radial_proj = radial_coeff * c_hat  # Broadcasting to (n_samples, q)
         
         # Tangential component
         tangential = diff - radial_proj
         
         # Elongated distance: downweight radial, penalize tangential
-        # d² = λ * ||radial||² + (1/λ) * ||tangential||²
+        # For λ < 1: d² = λ * ||radial||² + (1/λ) * ||tangential||²
         lam = self.lambda_elongation
         
         radial_dist_sq = np.sum(radial_proj ** 2, axis=1)
