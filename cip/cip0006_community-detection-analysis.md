@@ -1,5 +1,5 @@
 ---
-author: "AI Assistant"
+author: "Neil Lawrence"
 created: "2026-02-06"
 id: "0006"
 last_updated: "2026-02-06"
