@@ -6,36 +6,9 @@ import numpy as np
 import sys
 sys.path.insert(0, '..')
 
-from fitkit.algorithms.fitness import compute_fitness_complexity
+from fitkit.algorithms import FitnessComplexity, ECI
 from scipy import sparse
-from scipy.sparse.linalg import eigs
 from scipy.stats import pearsonr
-
-def compute_eci(M):
-    """Compute ECI using second eigenvector of degree-normalized random walk."""
-    M = M.astype(float)
-    n_countries, n_products = M.shape
-    
-    k_c = M.sum(axis=1) + 1e-10
-    k_p = M.sum(axis=0) + 1e-10
-    
-    D_c_inv = sparse.diags(1.0 / k_c)
-    D_p_inv = sparse.diags(1.0 / k_p)
-    M_sparse = sparse.csr_matrix(M)
-    
-    T_countries = D_c_inv @ M_sparse @ D_p_inv @ M_sparse.T
-    
-    n_eigs = min(3, n_countries - 1)
-    if n_countries > 2:
-        eigenvalues, eigenvectors = eigs(T_countries, k=n_eigs, which='LM')
-        idx = np.argsort(np.real(eigenvalues))[::-1]
-        eigenvectors = np.real(eigenvectors[:, idx])
-        eci = eigenvectors[:, 1]
-        eci = (eci - eci.mean()) / (eci.std() + 1e-10)
-    else:
-        eci = np.zeros(n_countries)
-    
-    return eci
 
 def generate_nested_network(n_countries=30, n_products=40, seed=42):
     """Generate a nested network for testing."""
@@ -61,26 +34,36 @@ def test_basic_functionality():
     print(f"Network shape: {M.shape}")
     print(f"Network density: {M.sum() / M.size:.2%}")
     
-    print("\nComputing spectral measures (ECI)...")
-    eci = compute_eci(M)
-    print(f"ECI computed: {len(eci)} values")
-    print(f"ECI range: [{eci.min():.3f}, {eci.max():.3f}]")
+    # Convert to sparse for sklearn-style interface
+    M_sparse = sparse.csr_matrix(M)
     
-    print("\nComputing entropic measures (Fitness)...")
-    fitness, complexity = compute_fitness_complexity(M)
+    print("\nComputing spectral measures (ECI) using sklearn-style estimator...")
+    eci_estimator = ECI()
+    eci, pci = eci_estimator.fit_transform(M_sparse)
+    print(f"ECI computed: {len(eci)} values")
+    print(f"ECI range: [{np.nanmin(eci):.3f}, {np.nanmax(eci):.3f}]")
+    print(f"PCI computed: {len(pci)} values")
+    
+    print("\nComputing entropic measures (Fitness) using sklearn-style estimator...")
+    fc_estimator = FitnessComplexity(n_iter=200, tol=1e-10, verbose=True)
+    fitness, complexity = fc_estimator.fit_transform(M_sparse)
     print(f"Fitness computed: {len(fitness)} values")
     print(f"Fitness range: [{fitness.min():.3f}, {fitness.max():.3f}]")
+    print(f"Iterations performed: {fc_estimator.n_iter_}")
     
-    # Standardize fitness
+    # Standardize fitness for comparison
     fitness_std = (fitness - fitness.mean()) / (fitness.std() + 1e-10)
     
     print("\nComputing correlation...")
-    r, p = pearsonr(eci, fitness_std)
+    # Remove NaN values for correlation
+    valid_mask = ~np.isnan(eci)
+    r, p = pearsonr(eci[valid_mask], fitness_std[valid_mask])
     print(f"Pearson correlation (ECI vs Fitness): r = {r:.3f}, p = {p:.3e}")
     
     if r > 0.7:
         print("\n✓ SUCCESS: High correlation indicates nested hierarchy")
         print("  The spectral and entropic measures agree, as expected for a nested network.")
+        print("  Sklearn-style estimators work correctly!")
     else:
         print("\n? Moderate correlation")
         print(f"  Correlation = {r:.3f}")
