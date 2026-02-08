@@ -202,6 +202,7 @@ class CommunityDetector:
         n_communities = 1
         prev_centers = None  # For warm-starting
         prev_embedding = None  # Previous embedding for warm-start
+        iteration = 0  # Initialize iteration counter
         
         for iteration in range(max_q - 1):
             # Extract q eigenvectors (MATLAB includes trivial eigenvector)
@@ -615,13 +616,19 @@ class CommunityDetector:
         
         return np.sqrt(distances_sq)
     
-    def fit(self, X):
+    def fit(self, X, eigenvectors=None):
         """Detect communities in the network.
         
         Parameters
         ----------
-        X : sparse or dense array of shape (n_samples, n_features)
-            Bipartite adjacency matrix.
+        X : sparse or dense array
+            Input matrix (ignored if eigenvectors provided):
+            - If affinity='bipartite': Bipartite adjacency (n_samples, n_features)
+            - If affinity='precomputed': Normalized Laplacian (n_samples, n_samples)
+        eigenvectors : ndarray of shape (n_samples, n_eigenvectors), optional
+            Pre-computed eigenvectors to use directly.
+            Columns should be sorted by eigenvalue magnitude (descending).
+            If provided, X is ignored and eigendecomposition is skipped.
         
         Returns
         -------
@@ -631,23 +638,29 @@ class CommunityDetector:
         if self.method != "iterative":
             raise ValueError(f"Unknown method: {self.method}. Only 'iterative' is supported.")
         
-        # Convert to sparse if needed
-        if not sparse.issparse(X):
-            X = sparse.csr_matrix(X)
+        # Handle pre-computed eigenvectors
+        if eigenvectors is not None:
+            eigenvalues = None
+            n_samples = eigenvectors.shape[0]
+        else:
+            # Convert to sparse if needed
+            if not sparse.issparse(X):
+                X = sparse.csr_matrix(X)
+            
+            n_samples = X.shape[0]
+            
+            # Handle edge cases
+            if n_samples < 3:
+                # Too small for meaningful clustering
+                self.labels_ = np.zeros(n_samples, dtype=int)
+                self.n_communities_ = 1
+                self.eigenvalues_ = np.array([1.0])
+                self.n_iterations_ = 0
+                return self
+            
+            # Compute eigenvectors
+            eigenvalues, eigenvectors = self._compute_eigenvectors(X)
         
-        n_samples, n_features = X.shape
-        
-        # Handle edge cases
-        if n_samples < 3:
-            # Too small for meaningful clustering
-            self.labels_ = np.zeros(n_samples, dtype=int)
-            self.n_communities_ = 1
-            self.eigenvalues_ = np.array([1.0])
-            self.n_iterations_ = 0
-            return self
-        
-        # Compute eigenvectors
-        eigenvalues, eigenvectors = self._compute_eigenvectors(X)
         self.eigenvalues_ = eigenvalues
         
         # Determine number of communities
@@ -663,8 +676,8 @@ class CommunityDetector:
                     f"n_communities must be between 1 and {n_samples}, got {n_communities}"
                 )
             
-            # Use first n_communities eigenvectors (skip trivial one)
-            embedding = eigenvectors[:, 1:n_communities+1]
+            # Use first n_communities eigenvectors
+            embedding = eigenvectors[:, 0:n_communities]
             labels = self._elongated_kmeans(embedding, n_communities)
             n_iters = 1
         
@@ -674,18 +687,20 @@ class CommunityDetector:
         
         return self
     
-    def fit_predict(self, X):
+    def fit_predict(self, X, eigenvectors=None):
         """Detect communities and return labels.
         
         Parameters
         ----------
-        X : sparse or dense array of shape (n_samples, n_features)
-            Bipartite adjacency matrix.
+        X : sparse or dense array
+            Input matrix (see fit() for details).
+        eigenvectors : ndarray, optional
+            Pre-computed eigenvectors (see fit() for details).
         
         Returns
         -------
         labels : ndarray of shape (n_samples,)
             Community labels for each node.
         """
-        self.fit(X)
+        self.fit(X, eigenvectors=eigenvectors)
         return self.labels_
