@@ -1,1 +1,1 @@
-"""Test suite for fitkit package."""
+"""Test suite for fitkit library."""
