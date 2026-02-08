@@ -148,25 +148,34 @@ class CommunityDetector:
             
             # T = D_c^{-1} M D_p^{-1} M^T (country-country transitions)
             T = D_c_inv @ X @ D_p_inv @ X.T
-            
-            # Convert to dense
-            T_dense = T.toarray() if sparse.issparse(T) else T
+            T_matrix = T
         else:
             # Pre-computed affinity/Laplacian: use directly
-            T_dense = X.toarray() if sparse.issparse(X) else X
+            if not sparse.issparse(X):
+                X = sparse.csr_matrix(X)
+            T_matrix = X
         
-        # Validate matrix
-        if not np.all(np.isfinite(T_dense)):
-            raise ValueError("Matrix contains NaN or Inf values. Check input matrix construction.")
+        # Use sparse eigensolver for stability on large matrices
+        from scipy.sparse.linalg import eigsh
+        n = T_matrix.shape[0]
+        k_eigs = min(self.max_communities + 5, n - 2)
         
-        # Use numpy's eigh which is more robust to LAPACK issues
-        # (scipy.linalg.eigh can segfault on certain matrix structures)
-        eigenvalues, eigenvectors = np.linalg.eigh(T_dense)
-        
-        # Sort by magnitude (descending)
-        idx = np.argsort(np.abs(eigenvalues))[::-1]
-        eigenvalues = eigenvalues[idx]
-        eigenvectors = eigenvectors[:, idx]
+        try:
+            # eigsh for sparse symmetric matrices (most stable)
+            eigenvalues, eigenvectors = eigsh(T_matrix, k=k_eigs, which='LA')
+            # Sort descending
+            idx = np.argsort(eigenvalues)[::-1]
+            eigenvalues = eigenvalues[idx]
+            eigenvectors = eigenvectors[:, idx]
+        except Exception as e:
+            # Fallback to dense for very small matrices
+            T_dense = T_matrix.toarray() if sparse.issparse(T_matrix) else T_matrix
+            if not np.all(np.isfinite(T_dense)):
+                raise ValueError(f"Matrix contains NaN/Inf: {e}")
+            eigenvalues, eigenvectors = np.linalg.eigh(T_dense)
+            idx = np.argsort(np.abs(eigenvalues))[::-1]
+            eigenvalues = eigenvalues[idx]
+            eigenvectors = eigenvectors[:, idx]
         
         return eigenvalues, eigenvectors
     

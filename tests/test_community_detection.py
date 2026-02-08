@@ -12,11 +12,9 @@ from fitkit.community.detection import CommunityDetector
 
 def compute_gaussian_affinity(X, sigma2):
     """Compute Gaussian affinity matrix matching MATLAB demoCircles.m."""
-    n = len(X)
-    A = np.zeros((n, n))
-    for i in range(n):
-        for j in range(n):
-            A[i, j] = np.exp(-np.linalg.norm(X[i] - X[j])**2 / sigma2)
+    from scipy.spatial.distance import cdist
+    dist_sq = cdist(X, X, metric='sqeuclidean')
+    A = np.exp(-dist_sq / sigma2)
     return A
 
 
@@ -113,7 +111,6 @@ class TestCommunityDetector:
         # Should still detect 2 main communities despite noise
         assert detector.n_communities_ == 2
     
-    @pytest.mark.skip(reason="BLAS/LAPACK segfault on dense 300x300 matrices - environmental issue")
     def test_concentric_circles_gaussian_affinity(self):
         """Test three CONCENTRIC circles from MATLAB demoCircles.m.
         
