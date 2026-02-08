@@ -3,7 +3,7 @@ author: "Neil Lawrence"
 created: "2026-02-06"
 id: "0006"
 last_updated: "2026-02-06"
-status: "Implemented"
+status: "Proposed"
 compressed: false
 related_requirements: []
 related_cips: []
@@ -19,24 +19,28 @@ title: "Community Detection and Within-Community Analysis for Spectral-Entropic 
 
 ## Status
 
-- [ ] Proposed
+- [x] Proposed
 - [ ] Accepted
 - [ ] In Progress
-- [x] Implemented
+- [ ] Implemented
 - [ ] Closed
 - [ ] Rejected
 - [ ] Deferred
 
 ## Summary
 
-Enhance the `spectral_entropic_comparison.ipynb` notebook with:
-1. Eigenvector-based community detection using the eigengap heuristic
-2. Within-community analysis to compare global vs local ECI-Fitness correlations
-3. Data-driven qualitative diagnostics replacing rigid categorical thresholds
+Add community detection capabilities to the `fitkit` library core:
+1. **Library integration**: New module `fitkit.community` with eigenvector-based community detection
+2. **Sklearn-style interface**: `CommunityDetector` class following fitkit conventions
+3. **Within-community analysis**: Utilities to compute ECI/Fitness separately per community
+4. **Notebook demonstration**: Update `spectral_entropic_comparison.ipynb` to demonstrate library features
+5. **Data-driven diagnostics**: Replace rigid thresholds with qualitative patterns
 
-This addresses the observation that sub-communities can be separated using higher eigenvectors and analyzed independently, revealing complementary perspectives (ECI for community boundaries, Fitness for within-community capability gradients).
+**Key architectural decision**: Community detection is core functionality, not just a notebook helper. It belongs in the library proper, with tests and documentation.
 
 ## Motivation
+
+### Problems to solve
 
 The original notebook had two limitations:
 
@@ -50,6 +54,23 @@ The original notebook had two limitations:
 - The notebook computed multiple eigenvectors but only used the first (Fiedler vector)
 - Morphology B (modular networks) show low global correlation but potentially high within-community correlation
 - This complementarity wasn't being demonstrated
+
+### Why proper library integration matters
+
+A prototype implementation was created in `examples/community_analysis_helpers.py`, but this is architecturally wrong:
+
+**Problems with notebook-only helper**:
+- Not reusable across projects
+- Not tested
+- Not discoverable to library users
+- Doesn't follow fitkit's sklearn-style conventions
+- Creates duplicate functionality risk
+
+**Correct approach**:
+- Community detection is general spectral analysis - belongs in library core
+- Should follow sklearn-style interface like `ECI` and `FitnessComplexity`
+- Should be tested and documented
+- Notebook should **demonstrate** library features, not implement them
 
 ## Detailed Description
 
@@ -75,7 +96,29 @@ Uses k-means clustering on the eigenvector embedding (ψ₂, ψ₃, ..., ψₖ) 
 - Infomap: Requires directed/weighted edges, overkill for demonstration
 - Manual k selection: Defeats purpose of automatic detection
 
-**Trade-offs**: Eigengap heuristic is simple, principled, and aligns with spectral theory foundations already in the paper. May miss hierarchical structure, but that's acceptable for demonstration purposes.
+**Trade-offs**: Eigengap heuristic is simple, principled, and aligns with spectral theory foundations already in the paper. May miss hierarchical structure, but that's acceptable for initial implementation.
+
+#### API Design Alternatives
+
+**Option A: Sklearn-style class (RECOMMENDED)**:
+```python
+detector = CommunityDetector(method='spectral', n_communities='auto')
+labels = detector.fit_predict(M)
+print(detector.n_communities_, detector.eigenvalues_)
+```
+
+**Pros**: Consistent with `ECI` and `FitnessComplexity`, stateful, exposes diagnostics
+**Cons**: More boilerplate for simple use
+
+**Option B: Functional API**:
+```python
+labels, n_communities = detect_communities(M, method='spectral')
+```
+
+**Pros**: Simpler for one-off use
+**Cons**: Inconsistent with fitkit patterns, harder to extend, diagnostics awkward
+
+**Decision**: Use Option A (sklearn-style) for consistency with existing fitkit API conventions. This is the pattern established by CIP-0004.
 
 #### 2. Within-Community Analysis
 
@@ -119,41 +162,84 @@ if pearson_countries > 0.85:
 
 ### Architecture
 
-**New module**: `examples/community_analysis_helpers.py`
+**Proposed library structure**:
 
-Contains two main functions:
-- `detect_communities_from_eigenvectors(M, n_communities='auto', max_communities=5)`
-- `analyze_within_communities(M, community_labels, ECI, FitnessComplexity)`
+```
+fitkit/
+├── community/
+│   ├── __init__.py
+│   ├── detection.py          # CommunityDetector class
+│   └── analysis.py            # within_community_analysis()
+```
 
-**Integration point**: New notebook cells 23-25
-- Cell 23: Markdown explaining community detection approach
-- Cell 24: Function `analyze_network_with_communities()` 
-- Cell 25: Demo call on modular network
+**Core components**:
 
-**Dependencies added**:
-- `sklearn.cluster.KMeans` - for eigenvector clustering
-- `scipy.sparse.linalg.eigs` - already used, now also in community detection
+1. **`CommunityDetector` class** (sklearn-style):
+   ```python
+   from fitkit.community import CommunityDetector
+   
+   detector = CommunityDetector(method='spectral', n_communities='auto')
+   labels = detector.fit_predict(M)  # Returns community labels
+   ```
+
+2. **Utility functions**:
+   ```python
+   from fitkit.community import within_community_analysis
+   
+   stats = within_community_analysis(M, labels, metrics=['eci', 'fitness'])
+   ```
+
+**Notebook becomes demonstration**:
+- Import from `fitkit.community`
+- Show how to use the library features
+- Visualize results
+- Provide interpretation guidance
+
+**Why this architecture**:
+- Community detection is general spectral analysis - not notebook-specific
+- Reusable across projects
+- Testable and maintainable
+- Discoverable via library API
+- Follows fitkit's sklearn-style conventions
 
 ## Implementation Plan
 
-**Already completed**:
+1. **Create library module structure**
+   - [ ] Create `fitkit/community/` directory
+   - [ ] Create `__init__.py` with exports
+   - [ ] Add to `fitkit/__init__.py` imports
 
-1. **Create community detection helper module**
-   - [x] Implement `detect_communities_from_eigenvectors()` with eigengap heuristic
-   - [x] Implement `analyze_within_communities()` with per-community ECI/Fitness
-   - [x] Add proper error handling for edge cases (small networks, sparse communities)
+2. **Implement `CommunityDetector` class** (`fitkit/community/detection.py`)
+   - [ ] `__init__(method='spectral', n_communities='auto', max_communities=5)`
+   - [ ] `fit(M)` - compute eigenvalues/vectors, detect communities
+   - [ ] `fit_predict(M)` - fit and return labels
+   - [ ] `labels_` attribute - community assignments after fitting
+   - [ ] `n_communities_` attribute - number detected
+   - [ ] `eigenvalues_` attribute - for diagnostics
 
-2. **Enhance notebook**
-   - [x] Add imports for community analysis
-   - [x] Add markdown cell explaining approach (cell 23)
-   - [x] Add `analyze_network_with_communities()` function (cell 24)
-   - [x] Add demo on modular network (cell 25)
-   - [x] Replace rigid thresholds with qualitative patterns
+3. **Implement analysis utilities** (`fitkit/community/analysis.py`)
+   - [ ] `within_community_analysis(M, labels, metrics=['eci', 'fitness'])`
+   - [ ] Returns per-community statistics (correlations, sizes, etc.)
+   - [ ] Handles edge cases (small communities, sparse networks)
 
-3. **Visualization**
-   - [x] Communities colored in ECI-Fitness space
-   - [x] Eigenvalue spectrum with gaps marked
-   - [x] Display global vs within-community correlations
+4. **Add tests** (`tests/test_community_detection.py`)
+   - [ ] Test on nested network (should detect 1 community)
+   - [ ] Test on modular network (should detect 2+ communities)
+   - [ ] Test eigengap heuristic behavior
+   - [ ] Test within-community analysis
+   - [ ] Test edge cases (small networks, degenerate cases)
+
+5. **Update notebook** (`examples/spectral_entropic_comparison.ipynb`)
+   - [ ] Import from `fitkit.community`
+   - [ ] Add community detection demonstration section
+   - [ ] Show within-community analysis
+   - [ ] Replace rigid diagnostic thresholds with qualitative patterns
+   - [ ] Add visualization of community structure
+
+6. **Documentation**
+   - [ ] Docstrings for all public methods
+   - [ ] Usage example in module docstring
+   - [ ] Update README if appropriate
 
 ## Backward Compatibility
 
@@ -184,14 +270,15 @@ None formally defined. This addresses user feedback about:
 
 ## Implementation Status
 
-- [x] Create `community_analysis_helpers.py`
-- [x] Implement eigengap heuristic
-- [x] Implement within-community analysis
-- [x] Add notebook cells 23-25
-- [x] Update diagnostic interpretation sections
-- [x] Add visualization code
-- [x] Test on synthetic networks
-- [ ] Validate on real economic data (future work)
+**Current state**: Prototype exists in `examples/community_analysis_helpers.py` but needs proper integration.
+
+- [ ] Create `fitkit/community/` module structure
+- [ ] Implement `CommunityDetector` sklearn-style class
+- [ ] Implement `within_community_analysis()` utility
+- [ ] Add comprehensive tests
+- [ ] Update notebook to use library (not helpers)
+- [ ] Remove prototype helper file
+- [ ] Add documentation
 
 ## References
 
@@ -204,10 +291,10 @@ None formally defined. This addresses user feedback about:
 - Tacchella et al. (2012). "A new metrics for countries' fitness and products' complexity." *Scientific Reports* 2, 723.
 - Balland & Rigby (2016). "The geography of complex knowledge." *Economic Geography* 93(1), 1-23.
 
-**Code files**:
-- `examples/community_analysis_helpers.py` - Helper functions
-- `examples/spectral_entropic_comparison.ipynb` - Enhanced notebook
-- Previous enhancement doc: `examples/SPECTRAL_ENTROPIC_ENHANCEMENTS.md` (to be deleted after CIP compression)
+**Code status**:
+- `examples/community_analysis_helpers.py` - Prototype (to be replaced by library module)
+- `examples/spectral_entropic_comparison.ipynb` - Has preliminary integration (needs update)
+- Target: `fitkit/community/` module (to be created)
 
 ## Future Enhancements
 
