@@ -5,6 +5,7 @@ networks using the Fitness-Complexity method and ECI/PCI baselines.
 
 Main components:
 - fitkit.algorithms: Core computational methods (fitness, ECI, Sinkhorn)
+- fitkit.community: Community detection and within-community analysis
 - fitkit.data: Data loading adapters (Wikipedia/BigQuery, synthetic fixtures)
 - fitkit.types: Shared type definitions (DataBundle, DataLoader protocol)
 

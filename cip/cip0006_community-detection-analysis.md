@@ -3,7 +3,7 @@ author: "Neil Lawrence"
 created: "2026-02-06"
 id: "0006"
 last_updated: "2026-02-06"
-status: "Accepted"
+status: "In Progress"
 compressed: false
 related_requirements: []
 related_cips: []
@@ -21,7 +21,7 @@ title: "Community Detection and Within-Community Analysis for Spectral-Entropic 
 
 - [x] Proposed
 - [x] Accepted
-- [ ] In Progress
+- [x] In Progress
 - [ ] Implemented
 - [ ] Closed
 - [ ] Rejected
@@ -552,7 +552,7 @@ None formally defined. This addresses user feedback about:
 **This prototype is architecturally wrong** - needs proper library integration and theoretical rigor.
 
 **Remaining work**:
-- [ ] Create `fitkit/community/` module structure
+- [x] Create `fitkit/community/` module structure
 - [ ] Implement `CommunityDetector` with iterative algorithm (2005 paper)
 - [ ] Implement elongated k-means (Mahalanobis radial distance)
 - [ ] Implement origin-detector termination criterion
