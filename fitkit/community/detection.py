@@ -100,12 +100,14 @@ class CommunityDetector:
         max_communities: int = 8,
         lambda_elongation: float = 0.2,
         random_state: Optional[int] = None,
+        affinity: Literal["bipartite", "precomputed"] = "bipartite",
     ):
         self.method = method
         self.n_communities = n_communities
         self.max_communities = max_communities
         self.lambda_elongation = lambda_elongation
         self.random_state = random_state
+        self.affinity = affinity
         
         # Attributes set during fitting
         self.labels_ = None
@@ -114,15 +116,16 @@ class CommunityDetector:
         self.n_iterations_ = None
     
     def _compute_eigenvectors(self, X):
-        """Compute eigenvectors of transition matrix for bipartite network.
+        """Compute eigenvectors of transition/affinity matrix.
         
-        Following economic-fitness.tex equation, computes eigenvectors of
-        T = D_c^{-1} M D_p^{-1} M^T
+        Two modes depending on self.affinity:
+        - 'bipartite': Compute T = D_c^{-1} M D_p^{-1} M^T (country-product)
+        - 'precomputed': Use X directly as affinity/Laplacian matrix
         
         Parameters
         ----------
         X : sparse array
-            Bipartite adjacency matrix.
+            Either bipartite adjacency matrix or pre-computed affinity matrix.
         
         Returns
         -------
@@ -131,23 +134,34 @@ class CommunityDetector:
         eigenvectors : ndarray
             Corresponding eigenvectors (columns).
         """
-        n_samples, n_features = X.shape
+        if self.affinity == 'bipartite':
+            # Bipartite network: compute transition matrix
+            n_samples, n_features = X.shape
+            
+            # Compute degree sequences
+            k_c = np.array(X.sum(axis=1)).ravel() + 1e-10
+            k_p = np.array(X.sum(axis=0)).ravel() + 1e-10
+            
+            # Degree-normalized transition matrix
+            D_c_inv = sparse.diags(1.0 / k_c)
+            D_p_inv = sparse.diags(1.0 / k_p)
+            
+            # T = D_c^{-1} M D_p^{-1} M^T (country-country transitions)
+            T = D_c_inv @ X @ D_p_inv @ X.T
+            
+            # Convert to dense
+            T_dense = T.toarray() if sparse.issparse(T) else T
+        else:
+            # Pre-computed affinity/Laplacian: use directly
+            T_dense = X.toarray() if sparse.issparse(X) else X
         
-        # Compute degree sequences
-        k_c = np.array(X.sum(axis=1)).ravel() + 1e-10
-        k_p = np.array(X.sum(axis=0)).ravel() + 1e-10
+        # Validate matrix
+        if not np.all(np.isfinite(T_dense)):
+            raise ValueError("Matrix contains NaN or Inf values. Check input matrix construction.")
         
-        # Degree-normalized transition matrix
-        D_c_inv = sparse.diags(1.0 / k_c)
-        D_p_inv = sparse.diags(1.0 / k_p)
-        
-        # T = D_c^{-1} M D_p^{-1} M^T (country-country transitions)
-        T = D_c_inv @ X @ D_p_inv @ X.T
-        
-        # Convert to dense and compute eigenvectors
-        T_dense = T.toarray() if sparse.issparse(T) else T
-        from scipy.linalg import eigh
-        eigenvalues, eigenvectors = eigh(T_dense)
+        # Use numpy's eigh which is more robust to LAPACK issues
+        # (scipy.linalg.eigh can segfault on certain matrix structures)
+        eigenvalues, eigenvectors = np.linalg.eigh(T_dense)
         
         # Sort by magnitude (descending)
         idx = np.argsort(np.abs(eigenvalues))[::-1]
