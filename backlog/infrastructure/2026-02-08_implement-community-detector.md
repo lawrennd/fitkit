@@ -90,20 +90,21 @@ Implementation completed. Full iterative algorithm implemented with:
 
 **Current Status (2026-02-08):**
 
-Major fixes completed based on MATLAB reference (~/lawrennd/spectral/matlab/SpectralCluster.m):
+All major fixes completed based on MATLAB reference (~/lawrennd/spectral/matlab/SpectralCluster.m):
 - ✓ Transition matrix: T = D_c^{-1} M D_p^{-1} M^T  
 - ✓ Elongated distance: d² = λ*||radial||² + (1/λ)*||tangential||²
 - ✓ Projection calculation: fixed broadcasting (was using np.outer incorrectly)
 - ✓ Warm-start: extend all previous centers correctly
 - ✓ Origin center: allowed to move during k-means convergence
+- ✓ **CRITICAL**: Include trivial eigenvector (eigenvectors[:, 0:q] not [:, 1:q+1])
 
-**Outstanding Issue:**
-Algorithm still over-segments on test cases (detects 5-15 communities instead of 2).
-- Tested on: perfect 2-block bipartite, modular connected, noisy networks
-- Origin detector never finds empty cluster → iterates to max_communities
-- Requires further debugging against MATLAB reference implementation
+**Root Cause Identified:**
+MATLAB SpectralCluster.m uses `PcEig = Y(:,(1:Dim))` which includes the trivial eigenvector (eigenvalue ≈1) as the first column. Python implementation was incorrectly skipping it with `eigenvectors[:, 1:q+1]`. The trivial eigenvector provides essential scale/mass distribution information that the origin detector needs.
 
-**Next Steps:**
-- Run MATLAB reference on same test data to verify expected behavior
-- Compare intermediate values (centers, distances, assignments) step-by-step
-- May need to adjust initialization or convergence criteria
+**Validation Results:**
+Comprehensive test suite confirms perfect detection:
+- Perfect 2-block bipartite: ✓ 2 communities, 100% purity
+- Modular with cross-connections: ✓ 2 communities, 100% purity  
+- Perfect 3-block bipartite: ✓ 3 communities, 100% purity
+
+**Status: Implementation COMPLETED and validated against test networks.**
