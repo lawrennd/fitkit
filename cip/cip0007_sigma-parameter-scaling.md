@@ -30,11 +30,11 @@ This CIP addresses a critical algorithmic issue in the community detection imple
 
 During validation of the spectral clustering implementation (CIP-0006), the three concentric circles test consistently failed on smaller datasets:
 
-- **300 points (100 per circle)**: Crashed with `scipy.linalg.eigh` BLAS segfault (see `BLAS_CRASH_REPORT.md`)
+- **300 points (100 per circle)**: Crashed with `scipy.linalg.eigh` BLAS segfault (see Appendix)
 - **150 points (50 per circle)**: Found only 2 clusters instead of 3
 - **90 points (30 per circle)**: Found only 2 clusters instead of 3
 
-The 300-point crash is a **confirmed known issue** with OpenBLAS 0.3.21 on Apple Silicon (documented in `BLAS_CRASH_REPORT.md` with minimal reproduction scripts and web research findings). The crash was worked around by using pre-computed Octave eigenvectors, but the fundamental algorithmic issue of incorrect cluster detection on smaller datasets remained.
+The 300-point crash is a **confirmed known issue** with OpenBLAS 0.3.21 on Apple Silicon (see Appendix for full details, minimal reproduction, and web research findings). The crash was worked around by using pre-computed Octave eigenvectors, but the fundamental algorithmic issue of incorrect cluster detection on smaller datasets remained.
 
 ### Root Cause Analysis
 
@@ -205,11 +205,10 @@ This CIP fixes a critical issue blocking validation of the community detection i
 
 ### Internal
 - CIP-0006: Community Detection Analysis Integration
-- `BLAS_CRASH_REPORT.md`: Comprehensive OpenBLAS crash documentation with minimal reproduction, web research, and workarounds
-- `test_circles_fixed.py`: Validation script
-- `test_sigma_values.py`: Parameter sweep
-- `examples/circles_demo_simple.ipynb`: Interactive demo
-- Crash reproduction scripts: `minimal_crash_isolated.py`, `diagnose_matrix.py`, `check_blas_config.py`
+- `test_circles_fixed.py`: Validation script showing 100% purity on 150 points
+- `test_sigma_values.py`: Systematic sigma parameter sweep
+- `examples/circles_demo_simple.ipynb`: Interactive demonstration
+- Crash reproduction scripts: `minimal_crash_isolated.py`, `minimal_crash_reproduction.py`, `test_blas_operations.py`, `test_matrix_access.py`, `diagnose_matrix.py`, `check_blas_config.py`
 
 ### External
 - Original MATLAB code: `~/lawrennd/spectral/matlab/demoCircles.m`
@@ -219,6 +218,91 @@ This CIP fixes a critical issue blocking validation of the community detection i
 ### Key Debugging Artifacts
 - `debug_circles_detailed.py`: Eigenvector analysis and manual k-means simulation (deleted after debugging)
 - Transcript: `/Users/neil/.cursor/projects/Users-neil-lawrennd-fitkit/agent-transcripts/5b50e13c-bcd1-40cd-96a0-d803c57e01ad.txt`
+
+## Appendix: OpenBLAS Crash on 300×300 Matrices
+
+### Issue Summary
+
+The 300-point three circles test crashes with `scipy.linalg.eigh()` segmentation fault (exit code 139) on macOS ARM64 (Apple Silicon M-series) with OpenBLAS 0.3.21.
+
+**System**: macOS ARM64, NumPy 1.26.4, SciPy 1.16.0, OpenBLAS 0.3.21, Python 3.11
+
+### Minimal Reproduction
+
+See `minimal_crash_isolated.py` (20 lines):
+```python
+import numpy as np
+from scipy.linalg import eigh
+from scipy.spatial.distance import cdist
+
+# Generate 300-point circles dataset
+np.random.seed(1)
+npts = 100
+# ... (generate X - see file for full code)
+
+# Compute Gaussian affinity and normalized Laplacian
+D = cdist(X, X, metric='euclidean')
+A = np.exp(-D**2 / (2 * 0.158**2))
+row_sums = A.sum(axis=1)
+D_inv_sqrt = 1.0 / np.sqrt(row_sums + 1e-10)
+L = D_inv_sqrt[:, np.newaxis] * A * D_inv_sqrt[np.newaxis, :]
+
+eigvals, eigvecs = eigh(L)  # ← CRASH: Exit code 139
+```
+
+**Matrix is numerically valid**: No NaN/Inf, symmetric, well-conditioned (300×300, dtype=float64).
+
+### What Works vs Crashes
+
+✅ **Works**:
+- `scipy.linalg.eigvalsh(L)` - eigenvalues only
+- Smaller matrices (< 250×250)
+- Basic operations (`L + L`, `L * 2`, `L @ L`)
+
+❌ **Crashes**:
+- `scipy.linalg.eigh(L)` - eigenvalues + eigenvectors
+- `np.linalg.eigh(L)` - eigenvalues + eigenvectors
+- `np.linalg.norm(L)` - matrix norm
+
+### Confirmed Known Issue
+
+**Web research (February 2026)** confirms this is a known OpenBLAS problem on Apple Silicon:
+
+1. **GitHub #1355**: `dsyev` (LAPACK eigenvalue solver) crashes when `INTERFACE64=0`, works with `INTERFACE64=1`
+2. **GitHub #4583**: M1/M2 kernel panics with ARPACK eigenvalue solvers using >4 threads
+3. **GitHub #3674**: General "cannot use OpenBLAS properly on M1 Mac" issues
+4. **GitHub #3309**: Segfaults in dependent packages (arpack, dynare) on macOS with OpenBLAS 0.3.16
+
+**Version history**:
+- 0.3.21 (our version): No specific Apple Silicon eigenvalue fixes
+- 0.3.27 (April 2024): Fixed NRM2 kernel inaccuracy on Apple M chips
+- 0.3.28 (August 2024): Fixed NaN/Inf handling, improved thread safety
+- **Status**: Incremental improvements continue, but eigenvalue decomposition remains problematic
+
+### Alternative BLAS Libraries
+
+**Intel MKL**: ❌ Not viable - no native ARM64 support, x86 only. Conda-forge stopped Intel Mac builds August 2025.
+
+**Apple Accelerate**: ❌ Not viable - NumPy 2.0+ supports it, but SciPy 1.13+ dropped Accelerate support.
+
+**Upgrade OpenBLAS**: ⚠️ May help but no guarantee. Version 0.3.28 has Apple Silicon fixes but eigenvalue issues persist.
+
+### Workarounds Used
+
+1. **Pre-computed eigenvectors** ✅: Generate with MATLAB/Octave, save to `.npz`, load in Python (used in `~/lawrennd/spectral/tests/fixtures/octave_three_circles.npz`)
+
+2. **Smaller datasets** ✅: Use 150 points (50/circle) with sigma=0.2 instead of 300 points (CIP-0007 solution)
+
+3. **Sparse eigensolver**: ⚠️ `scipy.sparse.linalg.eigsh(L, k=10)` hangs on 300×300 matrices (tested)
+
+### Reproduction Scripts
+
+- `minimal_crash_isolated.py`: Simplest 20-line reproducer
+- `minimal_crash_reproduction.py`: Detailed reproduction with diagnostics
+- `test_blas_operations.py`: Systematic BLAS function testing
+- `test_matrix_access.py`: Basic operations vs BLAS operations
+- `diagnose_matrix.py`: Matrix property validation
+- `check_blas_config.py`: BLAS configuration and Fortran layout test
 
 ## Lessons Learned
 
@@ -232,4 +316,4 @@ This CIP fixes a critical issue blocking validation of the community detection i
 
 5. **Test small before large**: If it doesn't work on 90 points, fixing it for 300 won't help.
 
-6. **Platform-specific bugs exist**: The OpenBLAS crash on Apple Silicon is a known issue (GitHub #1355, #3674, #4583) with no reliable fix as of version 0.3.28. Always test on target platforms and have workarounds ready (smaller datasets, pre-computed eigenvectors).
+6. **Platform-specific BLAS bugs are real**: OpenBLAS 0.3.21 on Apple Silicon has confirmed eigenvalue decomposition bugs (GitHub #1355, #3674, #4583) with no complete fix as of 0.3.28. Always have workarounds ready (smaller datasets, pre-computed eigenvectors). Alternative BLAS libraries (Intel MKL, Apple Accelerate) are not viable for SciPy on ARM64.
