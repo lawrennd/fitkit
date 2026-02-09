@@ -30,11 +30,11 @@ This CIP addresses a critical algorithmic issue in the community detection imple
 
 During validation of the spectral clustering implementation (CIP-0006), the three concentric circles test consistently failed on smaller datasets:
 
-- **300 points (100 per circle)**: Crashed with `scipy.linalg.eigh` BLAS segfault
+- **300 points (100 per circle)**: Crashed with `scipy.linalg.eigh` BLAS segfault (see `BLAS_CRASH_REPORT.md`)
 - **150 points (50 per circle)**: Found only 2 clusters instead of 3
 - **90 points (30 per circle)**: Found only 2 clusters instead of 3
 
-The 300-point crash was worked around by using pre-computed Octave eigenvectors, but the fundamental algorithmic issue of incorrect cluster detection on smaller datasets remained.
+The 300-point crash is a **confirmed known issue** with OpenBLAS 0.3.21 on Apple Silicon (documented in `BLAS_CRASH_REPORT.md` with minimal reproduction scripts and web research findings). The crash was worked around by using pre-computed Octave eigenvectors, but the fundamental algorithmic issue of incorrect cluster detection on smaller datasets remained.
 
 ### Root Cause Analysis
 
@@ -205,10 +205,11 @@ This CIP fixes a critical issue blocking validation of the community detection i
 
 ### Internal
 - CIP-0006: Community Detection Analysis Integration
-- `SIGMA_SCALING.md`: Detailed sigma parameter guidelines
+- `BLAS_CRASH_REPORT.md`: Comprehensive OpenBLAS crash documentation with minimal reproduction, web research, and workarounds
 - `test_circles_fixed.py`: Validation script
 - `test_sigma_values.py`: Parameter sweep
 - `examples/circles_demo_simple.ipynb`: Interactive demo
+- Crash reproduction scripts: `minimal_crash_isolated.py`, `diagnose_matrix.py`, `check_blas_config.py`
 
 ### External
 - Original MATLAB code: `~/lawrennd/spectral/matlab/demoCircles.m`
@@ -230,3 +231,5 @@ This CIP fixes a critical issue blocking validation of the community detection i
 4. **Eigenvector inspection is essential**: Looking at eigenvector structure by ground-truth cluster revealed exactly why the algorithm stopped early.
 
 5. **Test small before large**: If it doesn't work on 90 points, fixing it for 300 won't help.
+
+6. **Platform-specific bugs exist**: The OpenBLAS crash on Apple Silicon is a known issue (GitHub #1355, #3674, #4583) with no reliable fix as of version 0.3.28. Always test on target platforms and have workarounds ready (smaller datasets, pre-computed eigenvectors).
