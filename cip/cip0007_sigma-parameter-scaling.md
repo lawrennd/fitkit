@@ -219,90 +219,21 @@ This CIP fixes a critical issue blocking validation of the community detection i
 - `debug_circles_detailed.py`: Eigenvector analysis and manual k-means simulation (deleted after debugging)
 - Transcript: `/Users/neil/.cursor/projects/Users-neil-lawrennd-fitkit/agent-transcripts/5b50e13c-bcd1-40cd-96a0-d803c57e01ad.txt`
 
-## Appendix: OpenBLAS Crash on 300×300 Matrices
-
-### Issue Summary
+## Appendix: OpenBLAS Crash on 300×300 Matrices (Unresolved)
 
 The 300-point three circles test crashes with `scipy.linalg.eigh()` segmentation fault (exit code 139) on macOS ARM64 (Apple Silicon M-series) with OpenBLAS 0.3.21.
 
-**System**: macOS ARM64, NumPy 1.26.4, SciPy 1.16.0, OpenBLAS 0.3.21, Python 3.11
+**Status**: ⚠️ **Unresolved** - Tracked in backlog task `2026-02-09_openblas-crash-resolution`
 
-### Minimal Reproduction
+**Confirmed known issue**: OpenBLAS bugs in LAPACK eigenvalue decomposition on Apple Silicon (GitHub #1355, #3674, #4583). Alternative BLAS libraries (Intel MKL, Apple Accelerate) are not viable for SciPy on ARM64.
 
-See `minimal_crash_isolated.py` (20 lines):
-```python
-import numpy as np
-from scipy.linalg import eigh
-from scipy.spatial.distance import cdist
+**Current workarounds**:
+1. ✅ Pre-computed Octave eigenvectors (used in `~/lawrennd/spectral/tests/fixtures/`)
+2. ✅ Smaller datasets (150 points with sigma=0.2) - this CIP's solution
 
-# Generate 300-point circles dataset
-np.random.seed(1)
-npts = 100
-# ... (generate X - see file for full code)
+**Minimal reproduction**: See `minimal_crash_isolated.py` (20 lines, crashes at `scipy.linalg.eigh(L)`)
 
-# Compute Gaussian affinity and normalized Laplacian
-D = cdist(X, X, metric='euclidean')
-A = np.exp(-D**2 / (2 * 0.158**2))
-row_sums = A.sum(axis=1)
-D_inv_sqrt = 1.0 / np.sqrt(row_sums + 1e-10)
-L = D_inv_sqrt[:, np.newaxis] * A * D_inv_sqrt[np.newaxis, :]
-
-eigvals, eigvecs = eigh(L)  # ← CRASH: Exit code 139
-```
-
-**Matrix is numerically valid**: No NaN/Inf, symmetric, well-conditioned (300×300, dtype=float64).
-
-### What Works vs Crashes
-
-✅ **Works**:
-- `scipy.linalg.eigvalsh(L)` - eigenvalues only
-- Smaller matrices (< 250×250)
-- Basic operations (`L + L`, `L * 2`, `L @ L`)
-
-❌ **Crashes**:
-- `scipy.linalg.eigh(L)` - eigenvalues + eigenvectors
-- `np.linalg.eigh(L)` - eigenvalues + eigenvectors
-- `np.linalg.norm(L)` - matrix norm
-
-### Confirmed Known Issue
-
-**Web research (February 2026)** confirms this is a known OpenBLAS problem on Apple Silicon:
-
-1. **GitHub #1355**: `dsyev` (LAPACK eigenvalue solver) crashes when `INTERFACE64=0`, works with `INTERFACE64=1`
-2. **GitHub #4583**: M1/M2 kernel panics with ARPACK eigenvalue solvers using >4 threads
-3. **GitHub #3674**: General "cannot use OpenBLAS properly on M1 Mac" issues
-4. **GitHub #3309**: Segfaults in dependent packages (arpack, dynare) on macOS with OpenBLAS 0.3.16
-
-**Version history**:
-- 0.3.21 (our version): No specific Apple Silicon eigenvalue fixes
-- 0.3.27 (April 2024): Fixed NRM2 kernel inaccuracy on Apple M chips
-- 0.3.28 (August 2024): Fixed NaN/Inf handling, improved thread safety
-- **Status**: Incremental improvements continue, but eigenvalue decomposition remains problematic
-
-### Alternative BLAS Libraries
-
-**Intel MKL**: ❌ Not viable - no native ARM64 support, x86 only. Conda-forge stopped Intel Mac builds August 2025.
-
-**Apple Accelerate**: ❌ Not viable - NumPy 2.0+ supports it, but SciPy 1.13+ dropped Accelerate support.
-
-**Upgrade OpenBLAS**: ⚠️ May help but no guarantee. Version 0.3.28 has Apple Silicon fixes but eigenvalue issues persist.
-
-### Workarounds Used
-
-1. **Pre-computed eigenvectors** ✅: Generate with MATLAB/Octave, save to `.npz`, load in Python (used in `~/lawrennd/spectral/tests/fixtures/octave_three_circles.npz`)
-
-2. **Smaller datasets** ✅: Use 150 points (50/circle) with sigma=0.2 instead of 300 points (CIP-0007 solution)
-
-3. **Sparse eigensolver**: ⚠️ `scipy.sparse.linalg.eigsh(L, k=10)` hangs on 300×300 matrices (tested)
-
-### Reproduction Scripts
-
-- `minimal_crash_isolated.py`: Simplest 20-line reproducer
-- `minimal_crash_reproduction.py`: Detailed reproduction with diagnostics
-- `test_blas_operations.py`: Systematic BLAS function testing
-- `test_matrix_access.py`: Basic operations vs BLAS operations
-- `diagnose_matrix.py`: Matrix property validation
-- `check_blas_config.py`: BLAS configuration and Fortran layout test
+**Next steps**: See backlog task `backlog/infrastructure/2026-02-09_openblas-crash-resolution.md` for investigation plan (upgrade OpenBLAS, build with INTERFACE64=1, test thread limits, etc.)
 
 ## Lessons Learned
 
