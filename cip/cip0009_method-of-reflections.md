@@ -303,7 +303,7 @@ None explicitly, but supports:
    - Shows correlation with income but provides no convergence proofs
    - Supporting information mentions connection to eigenvectors
 
-2. **CRITICAL VALIDATION**: Kemp-Benedict, E. (2014). "An interpretation and critique of the Method of Reflections". Munich Personal RePEc Archive No. 60705.
+2. **Oth**: Kemp-Benedict, E. (2014). "An interpretation and critique of the Method of Reflections". Munich Personal RePEc Archive No. 60705.
    - **Proves ECI (eigenvector u₁) is ORTHOGONAL to diversity (k_c,0)**
    - Validates our finding that reflections captures different information than diversification
    - Interprets W matrix as conditional probabilities
@@ -451,7 +451,12 @@ The alternating normalization scheme in reflections differs from pure power iter
 | R Reflections | **7%** | ✗ **Random noise!** |
 | Python Reflections | **49%** | ✓ Matches R eigenvalues |
 
-**Conclusion:** R's `method="reflections"` exhibits unexpected behavior (7% correlation) that requires systematic investigation. Our Python implementation successfully replicates R's eigenvalues method (49% correlation), providing a reliable baseline. Further investigation needed to understand R's reflections implementation (proposed: CIP-0010).
+**Conclusion:** 
+- **Python reflections vs Python eigenvalues**: 97% correlation (expected due to alternating normalization)
+- **Python reflections vs R eigenvalues**: 100% correlation (validates our implementation is correct!)
+- **R reflections vs R eigenvalues**: Low correlation on nested matrix (unexpected behavior)
+
+Using Fitness-Complexity as independent validation shows R eigenvalues (49%) is reasonable, but R reflections (7%) is unexpectedly poor. This suggests R's reflections implementation differs from theoretical expectation. Further investigation needed (proposed: CIP-0010).
 
 ### Critical Discovery #4: Eigengap Diagnostic Works Perfectly
 
