@@ -56,7 +56,8 @@ save_comparison_data <- function(M, output_prefix, method = "fitness") {
   colnames(M_filtered) <- paste0("p", 1:ncol(M_filtered))
   
   # Compute complexity measures using specified method
-  results <- complexity_measures(balassa_index = M_filtered, method = method)
+  # Use 200 iterations to match Python (R default is only 20)
+  results <- complexity_measures(balassa_index = M_filtered, method = method, iterations = 200)
   
   # Extract Fitness and Complexity
   fitness <- results$complexity_index_country  # Country fitness (ECI in their naming)
