@@ -284,11 +284,14 @@ class ECIReflections:
         converged_: Whether algorithm converged
         
     Examples:
-        >>> from fitkit.algorithms.eci_reflections import ECIReflections
+        >>> from fitkit.algorithms import ECIReflections
         >>> estimator = ECIReflections(max_iter=200)
         >>> estimator.fit(M)  # M is binary incidence matrix
         >>> eci = estimator.eci_
         >>> pci = estimator.pci_
+        
+        >>> # Or: one-liner
+        >>> eci, pci = ECIReflections(max_iter=200).fit_transform(M)
     """
     
     def __init__(
@@ -307,17 +310,18 @@ class ECIReflections:
         self.n_iter_: Optional[int] = None
         self.converged_: Optional[bool] = None
     
-    def fit(self, M_bin: sp.spmatrix):
+    def fit(self, X: sp.spmatrix, y: np.ndarray | None = None):
         """Fit the Method of Reflections to compute ECI/PCI.
         
         Args:
-            M_bin: Binary incidence matrix (n_countries × n_products)
+            X: Binary incidence matrix (n_countries × n_products)
+            y: Ignored. Present for sklearn compatibility.
             
         Returns:
-            self
+            self: Fitted estimator.
         """
         eci, pci, history = compute_eci_pci_reflections(
-            M_bin,
+            X,
             max_iter=self.max_iter,
             tolerance=self.tolerance,
             check_eigengap_first=self.check_eigengap_first,
@@ -330,6 +334,20 @@ class ECIReflections:
         self.converged_ = history['converged']
         
         return self
+    
+    def fit_transform(self, X: sp.spmatrix, y: np.ndarray | None = None):
+        """Fit estimator and return ECI/PCI arrays.
+        
+        Args:
+            X: Binary incidence matrix (n_countries × n_products)
+            y: Ignored. Present for sklearn compatibility.
+            
+        Returns:
+            eci: Country ECI scores (n_countries,)
+            pci: Product PCI scores (n_products,)
+        """
+        self.fit(X, y)
+        return self.eci_, self.pci_
     
     def __repr__(self):
         return (
