@@ -37,8 +37,26 @@ library(Matrix)
 save_comparison_data <- function(M, output_prefix, method = "fitness") {
   cat(sprintf("\n=== Testing with method: %s ===\n", method))
   
+  # Convert sparse matrix to base R matrix for economiccomplexity package
+  M_matrix <- as.matrix(M)
+  
+  # Filter out rows/columns with all zeros (required for fitness-complexity)
+  row_sums <- rowSums(M_matrix)
+  col_sums <- colSums(M_matrix)
+  valid_rows <- which(row_sums > 0)
+  valid_cols <- which(col_sums > 0)
+  
+  cat(sprintf("Original matrix dimensions: %d x %d\n", nrow(M_matrix), ncol(M_matrix)))
+  cat(sprintf("Filtered matrix dimensions: %d x %d\n", length(valid_rows), length(valid_cols)))
+  
+  M_filtered <- M_matrix[valid_rows, valid_cols, drop = FALSE]
+  
+  # Add row and column names (required by economiccomplexity package)
+  rownames(M_filtered) <- paste0("c", 1:nrow(M_filtered))
+  colnames(M_filtered) <- paste0("p", 1:ncol(M_filtered))
+  
   # Compute complexity measures using specified method
-  results <- complexity_measures(M, method = method)
+  results <- complexity_measures(balassa_index = M_filtered, method = method)
   
   # Extract Fitness and Complexity
   fitness <- results$complexity_index_country  # Country fitness (ECI in their naming)
@@ -50,18 +68,32 @@ save_comparison_data <- function(M, output_prefix, method = "fitness") {
   cat(sprintf("R Complexity (product): mean=%.6f, std=%.6f, min=%.6f, max=%.6f\n",
               mean(complexity), sd(complexity), min(complexity), max(complexity)))
   
-  # Save matrix as CSV (sparse format: row, col, value)
-  M_triplet <- summary(as(M, "dgTMatrix"))
+  # Save filtered matrix as CSV (sparse format: row, col, value)
+  # Note: indices here refer to the filtered matrix
+  M_sparse_filtered <- as(Matrix(M_filtered, sparse = TRUE), "dgTMatrix")
+  M_triplet <- summary(M_sparse_filtered)
   write.csv(data.frame(
     row = M_triplet$i - 1,  # Convert to 0-indexed
     col = M_triplet$j - 1,
     value = M_triplet$x
   ), file = paste0(output_prefix, "_matrix.csv"), row.names = FALSE)
   
-  # Save dimensions
+  # Save row/column mapping (which rows/cols from original were kept)
   write.csv(data.frame(
-    n_countries = nrow(M),
-    n_products = ncol(M)
+    original_row = valid_rows - 1,  # Convert to 0-indexed
+    filtered_row = 0:(length(valid_rows)-1)
+  ), file = paste0(output_prefix, "_row_mapping.csv"), row.names = FALSE)
+  
+  write.csv(data.frame(
+    original_col = valid_cols - 1,  # Convert to 0-indexed
+    filtered_col = 0:(length(valid_cols)-1)
+  ), file = paste0(output_prefix, "_col_mapping.csv"), row.names = FALSE)
+  
+  # Save dimensions
+  # Save filtered matrix dimensions (not original M)
+  write.csv(data.frame(
+    n_countries = nrow(M_filtered),
+    n_products = ncol(M_filtered)
   ), file = paste0(output_prefix, "_dims.csv"), row.names = FALSE)
   
   # Save R results
