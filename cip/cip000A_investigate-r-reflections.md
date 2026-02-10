@@ -1,7 +1,7 @@
 ---
 author: "Neil D. Lawrence (via AI Assistant)"
 created: "2026-02-10"
-id: "0010"
+id: "000A"
 last_updated: "2026-02-10"
 status: "Proposed"
 compressed: false
@@ -15,7 +15,7 @@ tags:
 title: "Investigate R economiccomplexity Package Reflections Behavior"
 ---
 
-# CIP-0010: Investigate R economiccomplexity Package Reflections Behavior
+# CIP-000A: Investigate R economiccomplexity Package Reflections Behavior
 
 > **Note**: This CIP proposes systematic investigation of unexpected behavior in R's economiccomplexity package.
 

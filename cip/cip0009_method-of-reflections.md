@@ -291,7 +291,7 @@ None explicitly, but supports:
 - R eigenvalues vs F-C: 49% correlation (moderate, expected for linear vs nonlinear)
 - R reflections vs F-C: Only 7% correlation (unexpectedly low)
 - Python reflections vs F-C: Matches R eigenvalues (~49%)
-- **Conclusion**: R's `method="reflections"` exhibits unexpected behavior requiring investigation (see CIP-0010). Our Python implementation successfully replicates R's eigenvalues method
+- **Conclusion**: R's `method="reflections"` exhibits unexpected behavior requiring investigation (see CIP-000A). Our Python implementation successfully replicates R's eigenvalues method
 
 ## References
 
@@ -355,7 +355,7 @@ This CIP extends the literature by:
 3. **Empirical observations** showing unexpected R reflections behavior (7% vs 49% F-C correlation)
 4. **Independent confirmation** of Kemp-Benedict's orthogonality finding
 5. **Detailed convergence analysis** of alternating normalization effects
-6. **Identified research gap**: R reflections implementation requires investigation (→ CIP-0010)
+6. **Identified research gap**: R reflections implementation requires investigation (→ CIP-000A)
 
 ## Eigengap Analysis (CRITICAL)
 
@@ -389,7 +389,7 @@ Tested on nested matrix:
    - ✓ Degenerate eigenvalue → explains modular failure (NaN)
    - ⚠️ Poor correlation with F-C (7%) vs eigenvalues (49%) → requires investigation
    - ⚠️ Still unknown: why nested gives divergent results despite good eigengap
-   - **Proposed**: Create CIP-0010 to systematically investigate R implementation
+   - **Proposed**: Create CIP-000A to systematically investigate R implementation
 
 2. **Should we match R's behavior or the theory?**
    - **Answer**: Implement theory! R's behavior is clearly wrong
@@ -456,7 +456,7 @@ The alternating normalization scheme in reflections differs from pure power iter
 - **Python reflections vs R eigenvalues**: 100% correlation (validates our implementation is correct!)
 - **R reflections vs R eigenvalues**: Low correlation on nested matrix (unexpected behavior)
 
-Using Fitness-Complexity as independent validation shows R eigenvalues (49%) is reasonable, but R reflections (7%) is unexpectedly poor. This suggests R's reflections implementation differs from theoretical expectation. Further investigation needed (proposed: CIP-0010).
+Using Fitness-Complexity as independent validation shows R eigenvalues (49%) is reasonable, but R reflections (7%) is unexpectedly poor. This suggests R's reflections implementation differs from theoretical expectation. Further investigation needed (proposed: CIP-000A).
 
 ### Critical Discovery #4: Eigengap Diagnostic Works Perfectly
 
@@ -499,7 +499,7 @@ Zero eigengap correctly predicts mathematical failure (degenerate eigenspace).
 **R's reflections method requires caution:**
 - Shows unexpected low correlation with F-C (7% vs 49% for eigenvalues)
 - Recommend using eigenvalues method until behavior is understood
-- Investigation needed (proposed: CIP-0010)
+- Investigation needed (proposed: CIP-000A)
 
 ## Success Criteria
 
