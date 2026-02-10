@@ -303,7 +303,7 @@ None explicitly, but supports:
    - Shows correlation with income but provides no convergence proofs
    - Supporting information mentions connection to eigenvectors
 
-2. **Oth**: Kemp-Benedict, E. (2014). "An interpretation and critique of the Method of Reflections". Munich Personal RePEc Archive No. 60705.
+2. **Other Validation**: Kemp-Benedict, E. (2014). "An interpretation and critique of the Method of Reflections". Munich Personal RePEc Archive No. 60705.
    - **Proves ECI (eigenvector u₁) is ORTHOGONAL to diversity (k_c,0)**
    - Validates our finding that reflections captures different information than diversification
    - Interprets W matrix as conditional probabilities

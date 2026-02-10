@@ -60,3 +60,6 @@ docs/yaml_frontmatter_examples.md
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
+
+# Atlas of Economic Complexity downloaded data (large files)
+fitkit/data/atlas/

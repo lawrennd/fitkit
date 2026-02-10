@@ -31,8 +31,20 @@ __version__ = "0.1.0"
 # Export key types for convenience
 from fitkit.types import DataBundle, DataLoader
 
+# Export dataset loaders
+from fitkit.datasets import (
+    load_world_trade_1998_2000,
+    load_world_trade_raw_1998_2000,
+    load_atlas_trade,
+    list_atlas_available_years,
+)
+
 __all__ = [
     "DataBundle",
     "DataLoader",
+    "load_world_trade_1998_2000",
+    "load_world_trade_raw_1998_2000",
+    "load_atlas_trade",
+    "list_atlas_available_years",
     "__version__",
 ]
