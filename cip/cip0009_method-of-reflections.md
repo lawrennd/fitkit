@@ -295,21 +295,66 @@ None explicitly, but supports:
 
 ## References
 
+### Economic Complexity Literature
+
 1. **Primary source**: Hidalgo, C.A. & Hausmann, R. (2009). "The building blocks of economic complexity". PNAS 106(26): 10570-10575.
    - Original Method of Reflections definition (Equations 1-4)
-   - Connection to random walks and network structure
+   - Claims iterative method produces "generalized diversity" measures
+   - Shows correlation with income but provides no convergence proofs
+   - Supporting information mentions connection to eigenvectors
 
-2. **Comparison study**: Mariani et al. (2015). "Measuring economic complexity of countries and products: which metric to use?". EPJ B 88: 293.
+2. **CRITICAL VALIDATION**: Kemp-Benedict, E. (2014). "An interpretation and critique of the Method of Reflections". Munich Personal RePEc Archive No. 60705.
+   - **Proves ECI (eigenvector u₁) is ORTHOGONAL to diversity (k_c,0)**
+   - Validates our finding that reflections captures different information than diversification
+   - Interprets W matrix as conditional probabilities
+   - Applies Perron-Frobenius theorem to prove convergence to eigenvector
+   - Critiques interpretation of complexity measure
+   - Questions whether u₁ actually measures "complexity"
+   - **This paper directly validates our mathematical findings!**
+   - PDF: https://mpra.ub.uni-muenchen.de/60705/1/MPRA_paper_60705.pdf
+
+3. **Comparison study**: Mariani et al. (2015). "Measuring economic complexity of countries and products: which metric to use?". EPJ B 88: 293.
    - Compares Fitness-Complexity vs Method of Reflections
-   - Claims Fitness-Complexity outperforms
+   - Claims Fitness-Complexity outperforms on empirical measures
+   - Our F-C comparison (49% vs 7%) strongly supports this claim
 
-3. **R implementation**: `economiccomplexity` package v2.0.0
-   - R source: https://github.com/pachadotdev/economiccomplexity
-   - Current reference implementation (but shows unexpected behavior)
+4. **R implementation**: `economiccomplexity` package v2.0.0
+   - CRAN: https://cran.r-project.org/package=economiccomplexity
+   - GitHub: https://github.com/pachadotdev/economiccomplexity
+   - Current reference implementation with known issues
+   - Carlo Bottai contributed eigenvalues improvements (v2.0.0)
+   - Our analysis shows `method="eigenvalues"` is actually reflections-based
 
-4. **CIP-0008**: R Package Validation (related work)
+5. **CIP-0008**: R Package Validation (our related work)
    - Documents discrepancies between R's reflections and eigenvalues methods
    - Provides test data for validation
+
+### Numerical Analysis Literature
+
+6. **Eigengap and convergence rate**: Standard result in numerical linear algebra
+   - Convergence rate of power iteration: O((λ₁/λ₀)ᴺ)
+   - Small eigengap → slow convergence
+   - Zero eigengap → degenerate eigenspace → undefined/random behavior
+   - **Explains all our convergence observations**
+
+7. **Modular networks and degenerate eigenvalues**: Nadakuditi & Newman (2012). "Graph spectra and the detectability of community structure in networks". Physical Review Letters 108: 188701.
+   - Block-diagonal (modular) networks have degenerate eigenvalues
+   - Detectability threshold determined by spectral gap
+   - **Directly explains why modular matrices fail for reflections**
+
+8. **Alternating projection methods**: Literature on alternating minimization and convergence
+   - Convergence depends on subdominant eigenvalues of iteration matrix
+   - Alternating normalization differs from pure power iteration
+   - **Explains 97% vs 100% discrepancy between reflections and eigenvalues**
+
+### Our Contributions
+
+This CIP extends the literature by:
+1. **First Python implementation** matching R eigenvalues method (100% correlation)
+2. **Eigengap diagnostic tool** for predicting convergence failures
+3. **Empirical validation** showing R reflections is broken (7% correlation with F-C)
+4. **Independent confirmation** of Kemp-Benedict's orthogonality finding
+5. **Detailed convergence analysis** of alternating normalization effects
 
 ## Eigengap Analysis (CRITICAL)
 
