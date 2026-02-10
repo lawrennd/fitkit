@@ -1,0 +1,24 @@
+World Trade Data (1998-2000 Average)
+=====================================
+
+Source: R economiccomplexity package v2.0.0
+Data: World Bank / UN Comtrade
+Period: Average of years 1998, 1999, 2000
+
+Countries: 226
+Products:  785 (SITC Rev. 2 classification)
+Matrix density: 0.1801
+
+Files:
+  - world_trade_1998_2000.csv: Raw trade data (country, product, value)
+  - world_trade_1998_2000_balassa.csv: Binary Balassa index (sparse format)
+  - world_trade_1998_2000_countries.csv: Country index to name mapping
+  - world_trade_1998_2000_products.csv: Product index to name mapping
+
+Citation:
+  Hausmann, R., Hidalgo, C. A., Bustos, S., Coscia, M., Simoes, A., & Yildirim, M. A. (2014).
+  The Atlas of Economic Complexity: Mapping Paths to Prosperity.
+  MIT Press.
+
+R Package:
+  https://cran.r-project.org/package=economiccomplexity

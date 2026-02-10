@@ -7,6 +7,7 @@ Main components:
 - fitkit.algorithms: Core computational methods (fitness, ECI, Sinkhorn)
 - fitkit.community: Community detection and within-community analysis
 - fitkit.data: Data loading adapters (Wikipedia/BigQuery, synthetic fixtures)
+- fitkit.datasets: Standard datasets for demos and validation
 - fitkit.types: Shared type definitions (DataBundle, DataLoader protocol)
 
 Quick start:
