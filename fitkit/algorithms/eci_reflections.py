@@ -290,15 +290,32 @@ class ECIReflections:
         n_iter_: Number of iterations used
         converged_: Whether algorithm converged
         
+    Notes:
+        Following scikit-learn conventions, only minimal convergence diagnostics
+        (n_iter_ and converged_) are stored as attributes. This matches the pattern
+        used by sklearn.linear_model.LogisticRegression and similar iterative
+        estimators.
+        
+        For detailed convergence history (per-iteration deltas, norms, etc.),
+        use the deprecated `compute_eci_pci_reflections()` function with
+        `return_history=True`. This is intended for debugging and research, not
+        typical usage.
+        
     Examples:
         >>> from fitkit.algorithms import ECIReflections
         >>> estimator = ECIReflections(max_iter=200)
         >>> estimator.fit(M)  # M is binary incidence matrix
         >>> eci = estimator.eci_
         >>> pci = estimator.pci_
+        >>> print(f"Converged: {estimator.converged_}, iterations: {estimator.n_iter_}")
         
         >>> # Or: one-liner
         >>> eci, pci = ECIReflections(max_iter=200).fit_transform(M)
+        
+        >>> # For detailed convergence diagnostics (debugging):
+        >>> from fitkit.algorithms import compute_eci_pci_reflections
+        >>> eci, pci, history = compute_eci_pci_reflections(M, return_history=True)
+        >>> # history contains: iterations, delta_c, delta_p, k_c_norm, k_p_norm
     """
     
     def __init__(
@@ -420,24 +437,33 @@ def compute_eci_pci_reflections(
         Use `ECIReflections` class instead (scikit-learn interface). This function
         will be removed in a future version.
         
+        Note: This function remains useful for accessing detailed convergence
+        history (per-iteration deltas, norms) when `return_history=True`. The
+        class interface only exposes minimal convergence info (n_iter_, converged_)
+        following scikit-learn conventions.
+        
     Args:
         M_bin: Binary incidence matrix
         max_iter: Maximum iterations
         tolerance: Convergence threshold
         check_eigengap_first: Check eigengap before iterating
-        return_history: Return convergence diagnostics
+        return_history: Return convergence diagnostics (detailed history dict)
         
     Returns:
-        eci, pci arrays (and optionally history dict)
+        eci, pci arrays (and optionally history dict with per-iteration diagnostics)
         
     Example:
-        >>> # Old way (deprecated):
-        >>> eci, pci = compute_eci_pci_reflections(M_bin)
-        >>> 
-        >>> # New way (recommended):
+        >>> # Typical usage (class interface, recommended):
         >>> from fitkit.algorithms import ECIReflections
         >>> model = ECIReflections()
         >>> eci, pci = model.fit_transform(M_bin)
+        >>> print(f"Converged in {model.n_iter_} iterations")
+        >>> 
+        >>> # For detailed convergence diagnostics (debugging):
+        >>> eci, pci, history = compute_eci_pci_reflections(M_bin, return_history=True)
+        >>> import matplotlib.pyplot as plt
+        >>> plt.plot(history['iterations'], history['delta_c'], label='delta_c')
+        >>> plt.plot(history['iterations'], history['delta_p'], label='delta_p')
     """
     warnings.warn(
         "compute_eci_pci_reflections() is deprecated. "
