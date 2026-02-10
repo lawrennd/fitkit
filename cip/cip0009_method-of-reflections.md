@@ -289,9 +289,9 @@ None explicitly, but supports:
 
 **4. Comparison to Fitness-Complexity (Ground Truth)**
 - R eigenvalues vs F-C: 49% correlation (moderate, expected for linear vs nonlinear)
-- R reflections vs F-C: Only 7% correlation (essentially random!)
-- Python reflections vs F-C: Should match R eigenvalues (~49%)
-- **Conclusion**: R's `method="reflections"` is broken/unreliable, but our implementation is correct
+- R reflections vs F-C: Only 7% correlation (unexpectedly low)
+- Python reflections vs F-C: Matches R eigenvalues (~49%)
+- **Conclusion**: R's `method="reflections"` exhibits unexpected behavior requiring investigation (see CIP-0010). Our Python implementation successfully replicates R's eigenvalues method
 
 ## References
 
@@ -350,11 +350,12 @@ None explicitly, but supports:
 ### Our Contributions
 
 This CIP extends the literature by:
-1. **First Python implementation** matching R eigenvalues method (100% correlation)
+1. **Python implementation** matching R eigenvalues method (100% correlation)
 2. **Eigengap diagnostic tool** for predicting convergence failures
-3. **Empirical validation** showing R reflections is broken (7% correlation with F-C)
+3. **Empirical observations** showing unexpected R reflections behavior (7% vs 49% F-C correlation)
 4. **Independent confirmation** of Kemp-Benedict's orthogonality finding
 5. **Detailed convergence analysis** of alternating normalization effects
+6. **Identified research gap**: R reflections implementation requires investigation (→ CIP-0010)
 
 ## Eigengap Analysis (CRITICAL)
 
@@ -386,9 +387,9 @@ Tested on nested matrix:
 
 1. **Why does R's reflections differ from eigenvalues?**
    - ✓ Degenerate eigenvalue → explains modular failure (NaN)
-   - ✓ Poor correlation with F-C → not just "different", actually broken
-   - ⚠️ Still unknown: why nested gives wrong results despite good eigengap
-   - Need to investigate: R's C++ implementation details
+   - ⚠️ Poor correlation with F-C (7%) vs eigenvalues (49%) → requires investigation
+   - ⚠️ Still unknown: why nested gives divergent results despite good eigengap
+   - **Proposed**: Create CIP-0010 to systematically investigate R implementation
 
 2. **Should we match R's behavior or the theory?**
    - **Answer**: Implement theory! R's behavior is clearly wrong
@@ -441,7 +442,7 @@ The alternating normalization scheme in reflections differs from pure power iter
 
 **This is mathematical behavior, not a bug!**
 
-### Critical Discovery #3: R's Reflections Method is Broken
+### Critical Discovery #3: R's Reflections Method Shows Unexpected Behavior
 
 **Ground truth comparison (Fitness-Complexity on nested matrix):**
 | Method | Correlation with F-C | Verdict |
@@ -450,7 +451,7 @@ The alternating normalization scheme in reflections differs from pure power iter
 | R Reflections | **7%** | ✗ **Random noise!** |
 | Python Reflections | **49%** | ✓ Matches R eigenvalues |
 
-**Conclusion:** R's `method="reflections"` is severely broken. Our Python implementation is correct because it matches R's eigenvalues method (which has reasonable correlation with the nonlinear F-C benchmark).
+**Conclusion:** R's `method="reflections"` exhibits unexpected behavior (7% correlation) that requires systematic investigation. Our Python implementation successfully replicates R's eigenvalues method (49% correlation), providing a reliable baseline. Further investigation needed to understand R's reflections implementation (proposed: CIP-0010).
 
 ### Critical Discovery #4: Eigengap Diagnostic Works Perfectly
 
@@ -490,9 +491,10 @@ Zero eigengap correctly predicts mathematical failure (degenerate eigenspace).
 - Benchmarking iterative vs direct methods
 - **Always check eigengap first!**
 
-**Never use R's reflections method:**
-- It's broken (7% correlation with F-C)
-- Use our eigenvalues or our reflections instead
+**R's reflections method requires caution:**
+- Shows unexpected low correlation with F-C (7% vs 49% for eigenvalues)
+- Recommend using eigenvalues method until behavior is understood
+- Investigation needed (proposed: CIP-0010)
 
 ## Success Criteria
 
