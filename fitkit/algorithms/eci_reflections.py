@@ -5,7 +5,8 @@ Hidalgo & Hausmann (2009), which should theoretically converge to the same
 eigenvector as the direct eigenvalue decomposition in `eci.py`.
 
 **WARNING**: This method can fail or converge slowly when the eigenvalue gap
-(λ₀ - λ₁) is small. Use `check_eigengap()` to diagnose convergence issues.
+(λ₀ - λ₁) is small. Use `ECIReflections` class (scikit-learn interface) which
+includes built-in diagnostics.
 
 References:
     Hidalgo, C.A. & Hausmann, R. (2009). "The building blocks of economic
@@ -18,8 +19,8 @@ import scipy.sparse as sp
 from typing import Optional, Tuple, Dict
 
 
-def check_eigengap(M_bin: sp.spmatrix, verbose: bool = True) -> Dict[str, float]:
-    """Diagnose eigenvalue gap to predict Method of Reflections convergence.
+def _check_eigengap(M_bin: sp.spmatrix, verbose: bool = True) -> Dict[str, float]:
+    """Diagnose eigenvalue gap to predict Method of Reflections convergence (private).
     
     Small eigengap → slow convergence or failure!
     Zero eigengap (degenerate) → power iteration undefined!
@@ -30,6 +31,9 @@ def check_eigengap(M_bin: sp.spmatrix, verbose: bool = True) -> Dict[str, float]
         
     Returns:
         dict with eigenvalues, eigengap, and convergence estimate
+        
+    Note:
+        This is a private function. Use ECIReflections.check_eigengap() instead.
     """
     Mv = M_bin.toarray()
     kc = Mv.sum(axis=1)
@@ -97,17 +101,20 @@ def check_eigengap(M_bin: sp.spmatrix, verbose: bool = True) -> Dict[str, float]
     return result
 
 
-def compute_eci_pci_reflections(
+def _compute_eci_pci_reflections(
     M_bin: sp.spmatrix,
     max_iter: int = 200,
     tolerance: float = 1e-6,
     check_eigengap_first: bool = True,
     return_history: bool = False
 ) -> Tuple[np.ndarray, np.ndarray] | Tuple[np.ndarray, np.ndarray, Dict]:
-    """Compute ECI/PCI using iterative Method of Reflections.
+    """Compute ECI/PCI using iterative Method of Reflections (private function).
     
     **WARNING**: This method can fail when eigenvalue gap is small!
     Set `check_eigengap_first=True` to diagnose potential issues.
+    
+    Note:
+        This is a private function. Use ECIReflections class instead.
     
     The algorithm iteratively updates country and product complexity:
         k_c[n] = (1/k_c[0]) * M @ k_p[n-1]
@@ -141,7 +148,7 @@ def compute_eci_pci_reflections(
     """
     # Check eigengap first to predict convergence issues
     if check_eigengap_first:
-        gap_info = check_eigengap(M_bin, verbose=False)
+        gap_info = _check_eigengap(M_bin, verbose=False)
         if gap_info['is_degenerate']:
             raise ValueError(
                 f"Eigenvalue gap too small ({gap_info['eigengap']:.2e}). "
@@ -320,7 +327,7 @@ class ECIReflections:
         Returns:
             self: Fitted estimator.
         """
-        eci, pci, history = compute_eci_pci_reflections(
+        eci, pci, history = _compute_eci_pci_reflections(
             X,
             max_iter=self.max_iter,
             tolerance=self.tolerance,
@@ -349,9 +356,96 @@ class ECIReflections:
         self.fit(X, y)
         return self.eci_, self.pci_
     
+    @staticmethod
+    def check_eigengap(M_bin: sp.spmatrix, verbose: bool = True) -> Dict[str, float]:
+        """Diagnose eigenvalue gap to predict convergence behavior.
+        
+        Small eigengap → slow convergence or failure!
+        Zero eigengap (degenerate) → power iteration undefined!
+        
+        Args:
+            M_bin: Binary incidence matrix (n_countries × n_products)
+            verbose: If True, print diagnostic information
+            
+        Returns:
+            dict with eigenvalues, eigengap, and convergence estimate
+            
+        Example:
+            >>> from fitkit.algorithms import ECIReflections
+            >>> gap_info = ECIReflections.check_eigengap(M_bin)
+        """
+        return _check_eigengap(M_bin, verbose=verbose)
+    
     def __repr__(self):
         return (
             f"ECIReflections(max_iter={self.max_iter}, "
             f"tolerance={self.tolerance}, "
             f"check_eigengap_first={self.check_eigengap_first})"
         )
+
+
+# Deprecated public functions - use ECIReflections class instead
+def check_eigengap(M_bin: sp.spmatrix, verbose: bool = True) -> Dict[str, float]:
+    """Diagnose eigenvalue gap (DEPRECATED).
+    
+    .. deprecated:: 0.2.0
+        Use `ECIReflections.check_eigengap()` instead. This function will be
+        removed in a future version.
+    
+    Args:
+        M_bin: Binary incidence matrix
+        verbose: If True, print diagnostic information
+        
+    Returns:
+        dict with eigenvalue diagnostics
+    """
+    warnings.warn(
+        "check_eigengap() is deprecated. Use ECIReflections.check_eigengap() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return _check_eigengap(M_bin, verbose=verbose)
+
+
+def compute_eci_pci_reflections(
+    M_bin: sp.spmatrix,
+    max_iter: int = 200,
+    tolerance: float = 1e-6,
+    check_eigengap_first: bool = True,
+    return_history: bool = False
+) -> Tuple[np.ndarray, np.ndarray] | Tuple[np.ndarray, np.ndarray, Dict]:
+    """Compute ECI/PCI using Method of Reflections (DEPRECATED).
+    
+    .. deprecated:: 0.2.0
+        Use `ECIReflections` class instead (scikit-learn interface). This function
+        will be removed in a future version.
+        
+    Args:
+        M_bin: Binary incidence matrix
+        max_iter: Maximum iterations
+        tolerance: Convergence threshold
+        check_eigengap_first: Check eigengap before iterating
+        return_history: Return convergence diagnostics
+        
+    Returns:
+        eci, pci arrays (and optionally history dict)
+        
+    Example:
+        >>> # Old way (deprecated):
+        >>> eci, pci = compute_eci_pci_reflections(M_bin)
+        >>> 
+        >>> # New way (recommended):
+        >>> from fitkit.algorithms import ECIReflections
+        >>> model = ECIReflections()
+        >>> eci, pci = model.fit_transform(M_bin)
+    """
+    warnings.warn(
+        "compute_eci_pci_reflections() is deprecated. "
+        "Use ECIReflections class instead (scikit-learn interface).",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return _compute_eci_pci_reflections(
+        M_bin, max_iter=max_iter, tolerance=tolerance,
+        check_eigengap_first=check_eigengap_first, return_history=return_history
+    )

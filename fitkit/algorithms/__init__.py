@@ -1,7 +1,7 @@
 """Core algorithms for fitness-complexity and economic complexity analysis.
 
-This module provides both scikit-learn-style estimators (classes) and
-functional APIs for convenience and backward compatibility.
+This module provides scikit-learn-style estimators (classes) as the primary API,
+with deprecated functional APIs maintained for backward compatibility.
 
 **Estimators (scikit-learn-style, recommended)**:
 - FitnessComplexity: Nonlinear Fitness-Complexity fixed point
@@ -9,12 +9,12 @@ functional APIs for convenience and backward compatibility.
 - ECIReflections: Iterative Method of Reflections (use with caution!)
 - SinkhornScaler: Masked Sinkhorn-Knopp / IPF scaling
 
-**Functional APIs (convenience, backward compatibility)**:
-- fitness_complexity: Nonlinear Fitness-Complexity fixed point
-- compute_eci_pci: Spectral ECI/PCI baseline (direct eigenvalue)
-- compute_eci_pci_reflections: Iterative Method of Reflections
-- check_eigengap: Diagnostic for reflections convergence
-- sinkhorn_masked: Masked Sinkhorn-Knopp / IPF scaling
+**Functional APIs (DEPRECATED - use classes instead)**:
+- fitness_complexity: Use FitnessComplexity class instead
+- compute_eci_pci: Use ECI class instead
+- compute_eci_pci_reflections: Use ECIReflections class instead (DEPRECATED)
+- check_eigengap: Use ECIReflections.check_eigengap() instead (DEPRECATED)
+- sinkhorn_masked: Use SinkhornScaler class instead
 
 All algorithms accept in-memory sparse matrices and perform no I/O.
 """

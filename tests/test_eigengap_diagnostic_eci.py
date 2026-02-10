@@ -7,7 +7,7 @@ converge slowly by analyzing the eigenvalue spectrum of the projection matrix.
 import numpy as np
 import scipy.sparse as sp
 
-from fitkit.algorithms.eci_reflections import check_eigengap
+from fitkit.algorithms import ECIReflections
 
 
 def create_test_matrices():
@@ -73,7 +73,7 @@ def run_eigengap_diagnostics():
         print(f"{'='*70}")
         
         try:
-            info = check_eigengap(M, verbose=True)
+            info = ECIReflections.check_eigengap(M, verbose=True)
             results[name] = info
         except Exception as e:
             print(f"Error: {e}")

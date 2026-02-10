@@ -8,11 +8,7 @@ import numpy as np
 import scipy.sparse as sp
 from scipy.stats import spearmanr
 
-from fitkit.algorithms.eci import compute_eci_pci
-from fitkit.algorithms.eci_reflections import (
-    compute_eci_pci_reflections,
-    check_eigengap,
-)
+from fitkit.algorithms import ECI, ECIReflections
 
 
 def create_nested_matrix(n_countries=20, n_products=30):
@@ -42,17 +38,18 @@ def test_reflections_convergence_nested():
     
     # Check eigengap first
     print("\nStep 1: Eigengap diagnostic")
-    gap_info = check_eigengap(M, verbose=True)
+    gap_info = ECIReflections.check_eigengap(M, verbose=True)
     
     # Compute with both methods
     print("\nStep 2: Computing ECI/PCI")
-    eci_eig, pci_eig = compute_eci_pci(M)
-    eci_refl, pci_refl, history = compute_eci_pci_reflections(
-        M, max_iter=50, return_history=True, check_eigengap_first=False
-    )
+    eci_model = ECI()
+    eci_eig, pci_eig = eci_model.fit_transform(M)
+    
+    refl_model = ECIReflections(max_iter=50)
+    eci_refl, pci_refl = refl_model.fit_transform(M)
     
     print(f"Eigenvalues method: completed")
-    print(f"Reflections method: converged={history['converged']}, iterations={history['final_iteration']}")
+    print(f"Reflections method: converged={refl_model.converged_}, iterations={refl_model.n_iter_}")
     
     # Compare results
     corr_eci = np.corrcoef(eci_eig, eci_refl)[0, 1]
@@ -84,15 +81,16 @@ def test_reflections_convergence_random():
     
     # Check eigengap
     print("\nEigengap diagnostic:")
-    gap_info = check_eigengap(M, verbose=True)
+    gap_info = ECIReflections.check_eigengap(M, verbose=True)
     
     # Compute
-    eci_eig, pci_eig = compute_eci_pci(M)
-    eci_refl, pci_refl, history = compute_eci_pci_reflections(
-        M, max_iter=50, return_history=True, check_eigengap_first=False
-    )
+    eci_model = ECI()
+    eci_eig, pci_eig = eci_model.fit_transform(M)
     
-    print(f"\nReflections: converged={history['converged']}, iterations={history['final_iteration']}")
+    refl_model = ECIReflections(max_iter=50)
+    eci_refl, pci_refl = refl_model.fit_transform(M)
+    
+    print(f"\nReflections: converged={refl_model.converged_}, iterations={refl_model.n_iter_}")
     
     # Compare
     corr_eci = np.corrcoef(eci_eig, eci_refl)[0, 1]
@@ -133,7 +131,8 @@ def test_reflections_vs_r_eigenvalues():
     r_pci = pd.read_csv(data_path / "eci_nested_r_pci.csv")["pci"].values
     
     # Compute with Python reflections
-    py_eci, py_pci = compute_eci_pci_reflections(M, max_iter=50, check_eigengap_first=False)
+    refl_model = ECIReflections(max_iter=50, check_eigengap_first=False)
+    py_eci, py_pci = refl_model.fit_transform(M)
     
     # Compare
     corr_eci = np.corrcoef(r_eci, py_eci)[0, 1]
