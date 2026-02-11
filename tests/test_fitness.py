@@ -11,7 +11,9 @@ def test_fitness_convergence():
     """Test that fitness-complexity converges on a small fixture."""
     bundle = create_small_fixture()
     # Use larger n_iter to ensure convergence at tol=1e-10
-    fc = FitnessComplexity(n_iter=500, tol=1e-10, verbose=False)
+    # Disable filtering for small test fixtures
+    fc = FitnessComplexity(n_iter=500, tol=1e-10, verbose=False, 
+                           min_ubiquity=1, min_diversification=1)
     F, Q = fc.fit_transform(bundle.matrix)
 
     # Check shapes
@@ -31,7 +33,7 @@ def test_fitness_convergence():
 def test_fitness_positivity():
     """Test that fitness and complexity are always positive."""
     bundle = create_small_fixture()
-    fc = FitnessComplexity(n_iter=100, verbose=False)
+    fc = FitnessComplexity(n_iter=100, verbose=False, min_ubiquity=1, min_diversification=1)
     F, Q = fc.fit_transform(bundle.matrix)
 
     assert np.all(F > 0)
@@ -46,7 +48,7 @@ def test_fitness_isolated_node():
     col = [0, 1, 0, 2, 1]
     M = sp.csr_matrix((data, (row, col)), shape=(4, 3), dtype=np.float64)
 
-    fc = FitnessComplexity(n_iter=50, verbose=False)
+    fc = FitnessComplexity(n_iter=50, verbose=False, min_ubiquity=1, min_diversification=0)
     F, Q = fc.fit_transform(M)
 
     # Isolated user (row 3) should have very low fitness
@@ -61,10 +63,12 @@ def test_fitness_deterministic():
     """Test that fitness-complexity is deterministic (same input → same output)."""
     bundle = create_small_fixture()
 
-    fc1 = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False)
+    fc1 = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False, 
+                            min_ubiquity=1, min_diversification=1)
     F1, Q1 = fc1.fit_transform(bundle.matrix)
     
-    fc2 = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False)
+    fc2 = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False,
+                            min_ubiquity=1, min_diversification=1)
     F2, Q2 = fc2.fit_transform(bundle.matrix)
 
     np.testing.assert_array_almost_equal(F1, F2)
@@ -75,7 +79,7 @@ def test_fitness_ranking_stability():
     """Test that fitness rankings are stable across runs."""
     bundle = create_small_fixture()
 
-    fc1 = FitnessComplexity(n_iter=100, verbose=False)
+    fc1 = FitnessComplexity(n_iter=100, verbose=False, min_ubiquity=1, min_diversification=1)
     F, Q = fc1.fit_transform(bundle.matrix)
 
     # Get rankings
@@ -83,7 +87,7 @@ def test_fitness_ranking_stability():
     word_ranks = Q.argsort()[::-1]
 
     # Re-run and check rankings are identical
-    fc2 = FitnessComplexity(n_iter=100, verbose=False)
+    fc2 = FitnessComplexity(n_iter=100, verbose=False, min_ubiquity=1, min_diversification=1)
     F2, Q2 = fc2.fit_transform(bundle.matrix)
     user_ranks2 = F2.argsort()[::-1]
     word_ranks2 = Q2.argsort()[::-1]
@@ -97,8 +101,8 @@ def test_fitness_scale_invariance():
     bundle = create_small_fixture()
     M = bundle.matrix
 
-    # Compute fitness on original matrix
-    fc1 = FitnessComplexity(n_iter=100, verbose=False)
+    # Compute fitness on original matrix (disable filtering for small test fixtures)
+    fc1 = FitnessComplexity(n_iter=100, verbose=False, min_ubiquity=1, min_diversification=1)
     F1, Q1 = fc1.fit_transform(M)
     ranks_F1 = F1.argsort()
     ranks_Q1 = Q1.argsort()
@@ -107,7 +111,7 @@ def test_fitness_scale_invariance():
     M_scaled = M * 2.0
     M_scaled.data = np.ones_like(M_scaled.data)  # Re-binarize
 
-    fc2 = FitnessComplexity(n_iter=100, verbose=False)
+    fc2 = FitnessComplexity(n_iter=100, verbose=False, min_ubiquity=1, min_diversification=1)
     F2, Q2 = fc2.fit_transform(M_scaled)
     ranks_F2 = F2.argsort()
     ranks_Q2 = Q2.argsort()
@@ -121,15 +125,17 @@ def test_fitness_empty_matrix():
     """Test that fitness handles empty matrices gracefully."""
     M = sp.csr_matrix((5, 8), dtype=np.float64)  # All zeros
 
-    # Should complete without crashing (though results are degenerate)
+    # Should complete without crashing
+    # With default filtering, everything will be filtered out
     fc = FitnessComplexity(n_iter=10, verbose=False)
     F, Q = fc.fit_transform(M)
 
     assert F.shape == (5,)
     assert Q.shape == (8,)
-    # All values should be equal (uniform) for empty matrix
-    assert np.allclose(F, F.mean())
-    assert np.allclose(Q, Q.mean())
+    # All values should be NaN (everything filtered)
+    assert np.all(np.isnan(F))
+    assert np.all(np.isnan(Q))
+    assert fc.converged_ == False  # No computation happened
 
 
 # ============================================================================
@@ -140,7 +146,8 @@ def test_fitness_estimator_basic():
     """Test that FitnessComplexity estimator works with fit/transform."""
     bundle = create_small_fixture()
 
-    fc = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False)
+    fc = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False,
+                           min_ubiquity=1, min_diversification=1)
     fc.fit(bundle.matrix)
 
     # Check fitted attributes exist
@@ -162,7 +169,8 @@ def test_fitness_estimator_fit_transform():
     """Test that fit_transform returns (F, Q)."""
     bundle = create_small_fixture()
 
-    fc = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False)
+    fc = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False,
+                           min_ubiquity=1, min_diversification=1)
     F, Q = fc.fit_transform(bundle.matrix)
 
     # Check shapes
@@ -185,8 +193,9 @@ def test_fitness_estimator_vs_functional():
         from fitkit.algorithms import fitness_complexity
         F_func, Q_func, history_func = fitness_complexity(bundle.matrix, n_iter=100, tol=1e-10)
 
-    # Estimator API
-    fc = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False)
+    # Estimator API (disable filtering to match functional API behavior)
+    fc = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False,
+                           min_ubiquity=1, min_diversification=1)
     F_est, Q_est = fc.fit_transform(bundle.matrix)
 
     # Should produce identical results
@@ -198,8 +207,9 @@ def test_fitness_estimator_chaining():
     """Test that estimator can be used in method chaining."""
     bundle = create_small_fixture()
 
-    # Chain: instantiate -> fit -> access attributes
-    F = FitnessComplexity(n_iter=100, verbose=False).fit(bundle.matrix).fitness_
+    # Chain: instantiate -> fit -> access attributes (disable filtering for small fixtures)
+    F = FitnessComplexity(n_iter=100, verbose=False, 
+                          min_ubiquity=1, min_diversification=1).fit(bundle.matrix).fitness_
 
     assert F.shape == (5,)
     assert np.all(F > 0)
