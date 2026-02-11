@@ -1,7 +1,7 @@
 ---
 id: "000D"
 title: "Fitness-Complexity Low Connectivity Filtering"
-author: "AI Assistant"
+author: "Neil Lawrence"
 created: "2026-02-11"
 last_updated: "2026-02-11"
 status: "Proposed"
@@ -197,7 +197,7 @@ Default behavior will change:
 
 ### Migration Path
 
-Users who want old behavior can disable filtering:
+Users who want old behaviour can disable filtering:
 ```python
 fc = FitnessComplexity(min_ubiquity=1, min_diversification=1)
 ```
@@ -280,7 +280,7 @@ None yet defined. This is a bug fix addressing a fundamental numerical issue.
    - https://github.com/pachamaltese/economiccomplexity
    - See `complexity_measures()` function for filtering approach
 
-4. Lawrence, N.D. (2024). "Conditional Likelihood Interpretation of Economic Fitness". Working paper.
+4. Lawrence, N.D. (2026). "Conditional Likelihood Interpretation of Economic Fitness". Working paper.
    - Theoretical justification for connectivity requirements
 
 ## Notes
