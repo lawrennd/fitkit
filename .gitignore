@@ -64,5 +64,9 @@ docs/yaml_frontmatter_examples.md
 # Atlas of Economic Complexity downloaded data (large files)
 fitkit/data/atlas/
 
-# World Bank indicators downloaded data
+# World Bank indicators downloaded data (both spellings)
 fitkit/data/worldbank/
+fitkit/data/world_bank/
+
+# Debug/diagnostic scripts (temporary)
+debug_*.py

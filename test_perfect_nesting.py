@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test PERFECT nested network to confirm theory.
+Test perfect nested network to confirm theory.
 
 Perfect nesting: If country c has capability θ_c and product p has complexity θ_p,
 then M[c,p] = 1 iff θ_c ≥ θ_p
