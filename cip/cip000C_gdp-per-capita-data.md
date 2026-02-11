@@ -26,9 +26,9 @@ title: "World Bank Indicators Data Access"
 ## Status
 
 - [x] Proposed - Initial idea documented
-- [ ] Accepted - Approved, ready to start work
-- [ ] In Progress - Actively being implemented
-- [ ] Implemented - Work complete, awaiting verification
+- [x] Accepted - Approved, ready to start work
+- [x] In Progress - Actively being implemented
+- [x] Implemented - Work complete, awaiting verification
 - [ ] Closed - Verified and complete
 - [ ] Rejected - Will not be implemented
 - [ ] Deferred - Postponed
@@ -519,34 +519,36 @@ print(f"\nTrade openness (% of GDP) available for {trade_df.shape[0]} countries"
 
 ## Implementation Status
 
-### Phase 1: Core Infrastructure
-- [ ] Design unified API interface (core + convenience wrappers)
-- [ ] Implement `_download_worldbank_indicator()` helper
-- [ ] Implement JSON parsing and DataFrame conversion
-- [ ] Implement per-indicator caching
+### Phase 1: Core Infrastructure ✅
+- [x] Design unified API interface (core + convenience wrappers)
+- [x] Implement `_download_worldbank_indicator()` helper
+- [x] Implement JSON parsing and DataFrame conversion
+- [x] Implement per-indicator caching
+- [x] Handle duplicate country-year entries
 
-### Phase 2: Public Functions
-- [ ] Implement `load_worldbank_indicator()` (core function)
-- [ ] Implement `load_gdp_per_capita()` (wrapper)
-- [ ] Implement `load_human_capital_index()` (wrapper)
-- [ ] Implement `list_worldbank_indicators()` (discovery)
-- [ ] Implement `list_worldbank_available_countries()` (coverage check)
-- [ ] Add country/date filtering to all functions
+### Phase 2: Public Functions ✅
+- [x] Implement `load_worldbank_indicator()` (core function)
+- [x] Implement `load_gdp_per_capita()` (wrapper)
+- [x] Implement `load_human_capital_index()` (wrapper)
+- [x] Implement `list_worldbank_available_countries()` (coverage check)
+- [x] Add country/date filtering to all functions
+- [ ] Implement `list_worldbank_indicators()` (discovery) - deferred for future
 
-### Phase 3: Integration
-- [ ] Add exports to package `__init__.py`
-- [ ] Update `.gitignore` for cached data
+### Phase 3: Integration ✅
+- [x] Add exports to package `__init__.py`
+- [x] Update `.gitignore` for cached data
+- [x] Basic testing with GDP, HCI, and Trade indicators
 - [ ] Create comprehensive example analysis in notebook
   - GDP correlation with fitness
   - HCI triangle analysis (Fitness-GDP-HCI)
   - Time-series growth analysis
 
 ### Phase 4: Quality Assurance
-- [ ] Add unit tests for each indicator type
-- [ ] Test with different country/year filters
-- [ ] Test DataFrame structure consistency
-- [ ] Test error handling (missing data, invalid codes)
-- [ ] Run test suite
+- [x] Manual testing with different indicators (GDP, HCI, Trade)
+- [x] Test with different country/year filters
+- [x] Test DataFrame structure consistency
+- [x] Test error handling (duplicate data)
+- [ ] Add formal unit tests to test suite
 - [ ] Update formal documentation (after validation)
 
 ## References

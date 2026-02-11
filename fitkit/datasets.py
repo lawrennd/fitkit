@@ -2,15 +2,16 @@
 
 This module provides convenient loaders for standard economic complexity datasets,
 including the world trade data from the R economiccomplexity package and the
-Harvard Atlas of Economic Complexity.
+Harvard Atlas of Economic Complexity, as well as World Bank economic indicators.
 """
 
 import os
+import json
 import warnings
 from pathlib import Path
-from typing import Tuple, Optional, Literal
+from typing import Tuple, Optional, Literal, List, Dict, Any
 from urllib.request import urlopen, Request
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlencode
 
 import numpy as np
 import pandas as pd
@@ -403,3 +404,413 @@ def list_atlas_available_years(
     # Load and check years
     df = pd.read_csv(cache_file, usecols=['year'])
     return sorted(df['year'].unique().tolist())
+
+
+# =============================================================================
+# World Bank Indicators Data Access
+# =============================================================================
+
+def _download_worldbank_indicator(
+    indicator_code: str,
+    dest_path: Path,
+    start_year: Optional[int] = None,
+    end_year: Optional[int] = None
+) -> Dict[str, Any]:
+    """Download World Bank indicator data via API.
+    
+    Args:
+        indicator_code: World Bank indicator code (e.g., 'NY.GDP.PCAP.CD')
+        dest_path: Destination path for CSV cache file
+        start_year: Start year for data (default: all available)
+        end_year: End year for data (default: all available)
+        
+    Returns:
+        Dictionary with indicator metadata (name, description, source)
+    """
+    if dest_path.exists():
+        # Return cached metadata if available
+        try:
+            df = pd.read_csv(dest_path, nrows=0)
+            return {
+                'name': df.attrs.get('indicator_name', indicator_code),
+                'description': df.attrs.get('indicator_description', ''),
+                'source': df.attrs.get('indicator_source', '')
+            }
+        except:
+            pass  # Re-download if cache read fails
+    
+    print(f"Downloading World Bank indicator {indicator_code}...")
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Build API URL
+    base_url = f"https://api.worldbank.org/v2/country/all/indicator/{indicator_code}"
+    params = {
+        'format': 'json',
+        'per_page': 20000,  # Large page size to avoid pagination
+        'page': 1
+    }
+    
+    if start_year and end_year:
+        params['date'] = f"{start_year}:{end_year}"
+    
+    url = f"{base_url}?{urlencode(params)}"
+    
+    # Create request with user agent
+    req = Request(url, headers={'User-Agent': 'fitkit/1.0 (Python)'})
+    
+    # Download JSON data
+    with urlopen(req) as response:
+        data = json.loads(response.read().decode('utf-8'))
+    
+    # Parse response
+    if len(data) < 2 or not isinstance(data[1], list):
+        raise ValueError(f"Invalid API response for indicator {indicator_code}")
+    
+    metadata = data[0]
+    records = data[1]
+    
+    if not records:
+        raise ValueError(f"No data found for indicator {indicator_code}")
+    
+    # Extract indicator metadata from first record
+    first_record = records[0]
+    indicator_name = first_record.get('indicator', {}).get('value', indicator_code)
+    indicator_desc = ''  # API doesn't provide description in data endpoint
+    indicator_source = first_record.get('unit', '')
+    
+    print(f"  Indicator: {indicator_name}")
+    print(f"  Records: {len(records)}")
+    
+    # Convert to DataFrame
+    rows = []
+    for record in records:
+        if record.get('value') is not None:  # Skip null values
+            rows.append({
+                'country_code': record.get('countryiso3code', ''),
+                'country_name': record.get('country', {}).get('value', ''),
+                'year': int(record.get('date', 0)),
+                'value': float(record.get('value', 0))
+            })
+    
+    if not rows:
+        raise ValueError(f"No valid data found for indicator {indicator_code}")
+    
+    df = pd.DataFrame(rows)
+    
+    # Remove duplicates (keep last value for each country-year)
+    # Duplicates can occur due to data revisions or multiple sources
+    df = df.drop_duplicates(subset=['country_code', 'year'], keep='last')
+    
+    # Pivot to wide format (countries × years)
+    df_wide = df.pivot(index='country_code', columns='year', values='value')
+    df_wide.index.name = 'country_code'
+    
+    # Sort columns (years) in ascending order
+    df_wide = df_wide[[c for c in sorted(df_wide.columns)]]
+    
+    # Store metadata as attributes (note: lost when saving to CSV)
+    df_wide.attrs['indicator_code'] = indicator_code
+    df_wide.attrs['indicator_name'] = indicator_name
+    df_wide.attrs['indicator_description'] = indicator_desc
+    df_wide.attrs['indicator_source'] = indicator_source
+    
+    # Save to cache
+    df_wide.to_csv(dest_path)
+    
+    # Also save metadata separately
+    metadata_file = dest_path.with_suffix('.json')
+    with open(metadata_file, 'w') as f:
+        json.dump({
+            'indicator_code': indicator_code,
+            'indicator_name': indicator_name,
+            'indicator_description': indicator_desc,
+            'indicator_source': indicator_source
+        }, f, indent=2)
+    
+    print(f"Downloaded to {dest_path}")
+    print(f"  Shape: {df_wide.shape[0]} countries × {df_wide.shape[1]} years")
+    
+    return {
+        'name': indicator_name,
+        'description': indicator_desc,
+        'source': indicator_source
+    }
+
+
+def load_worldbank_indicator(
+    indicator_code: str,
+    countries: Optional[List[str]] = None,
+    start_year: Optional[int] = None,
+    end_year: Optional[int] = None,
+    auto_download: bool = True
+) -> pd.DataFrame:
+    """Load World Bank indicator data.
+    
+    Downloads and caches data from the World Bank World Development Indicators (WDI)
+    database for any indicator. Returns a DataFrame with countries as rows and years
+    as columns.
+    
+    Args:
+        indicator_code: World Bank indicator code (e.g., 'NY.GDP.PCAP.CD' for GDP per capita)
+        countries: Optional list of ISO3 country codes to filter (e.g., ['USA', 'GBR', 'CHN'])
+        start_year: Start year for data (default: all available)
+        end_year: End year for data (default: all available)
+        auto_download: If True, automatically download data if not cached
+        
+    Returns:
+        DataFrame with country codes as index and years as columns
+        - Index: ISO3 country codes (e.g., 'USA', 'GBR', 'CHN')
+        - Columns: Years (e.g., 2000, 2001, ..., 2020)
+        - Values: Indicator values (NaN for missing data)
+        - Attributes: indicator metadata (name, description, source)
+        
+    Examples:
+        >>> from fitkit.datasets import load_worldbank_indicator
+        >>> 
+        >>> # Load GDP per capita for recent years
+        >>> gdp_df = load_worldbank_indicator('NY.GDP.PCAP.CD', start_year=2010, end_year=2020)
+        >>> print(f"Shape: {gdp_df.shape}")
+        >>> print(f"Countries: {gdp_df.shape[0]}, Years: {gdp_df.shape[1]}")
+        >>> 
+        >>> # Load Human Capital Index for specific countries
+        >>> hci_df = load_worldbank_indicator('HD.HCI.OVRL', countries=['USA', 'CHN', 'IND'])
+        >>> print(hci_df)
+        >>> 
+        >>> # Load any indicator (e.g., Trade as % of GDP)
+        >>> trade_df = load_worldbank_indicator('NE.TRD.GNFS.ZS', start_year=2020, end_year=2020)
+        >>> print(trade_df['2020'].nlargest(10))  # Most open economies
+        
+    Common Indicator Codes:
+        - NY.GDP.PCAP.CD: GDP per capita, current US$
+        - NY.GDP.PCAP.PP.CD: GDP per capita, PPP
+        - HD.HCI.OVRL: Human Capital Index
+        - NE.TRD.GNFS.ZS: Trade (% of GDP)
+        - GB.XPD.RSDV.GD.ZS: R&D expenditure (% of GDP)
+        - SP.POP.TOTL: Total population
+        - SI.POV.GINI: Gini index
+        
+    Notes:
+        - Data is cached in fitkit/data/worldbank/
+        - Some indicators (like HCI) only available for specific years
+        - Missing data returned as NaN
+        - Country codes use ISO3 standard (matches Atlas trade data)
+        
+    Data Source:
+        World Bank World Development Indicators (WDI)
+        https://data.worldbank.org/
+        
+    See Also:
+        - load_gdp_per_capita(): Convenience wrapper for GDP per capita
+        - load_human_capital_index(): Convenience wrapper for Human Capital Index
+        - list_worldbank_indicators(): Browse available indicators
+        - list_worldbank_available_countries(): Check country coverage
+    """
+    data_dir = get_data_dir() / "worldbank"
+    
+    # Create safe filename from indicator code
+    safe_code = indicator_code.replace('.', '_').replace('/', '_')
+    cache_file = data_dir / f"{safe_code}.csv"
+    metadata_file = data_dir / f"{safe_code}.json"
+    
+    # Download if needed
+    if not cache_file.exists():
+        if not auto_download:
+            raise FileNotFoundError(
+                f"Indicator {indicator_code} not cached. Set auto_download=True to download."
+            )
+        _download_worldbank_indicator(indicator_code, cache_file, start_year, end_year)
+    
+    # Load from cache
+    df = pd.read_csv(cache_file, index_col='country_code')
+    
+    # Load metadata if available
+    if metadata_file.exists():
+        with open(metadata_file) as f:
+            metadata = json.load(f)
+            df.attrs.update(metadata)
+    
+    # Convert column names to integers (years)
+    df.columns = [int(c) for c in df.columns]
+    
+    # Filter by countries if specified
+    if countries:
+        available_countries = [c for c in countries if c in df.index]
+        if not available_countries:
+            warnings.warn(f"None of the requested countries found in data for {indicator_code}")
+            return pd.DataFrame()
+        missing_countries = set(countries) - set(available_countries)
+        if missing_countries:
+            warnings.warn(f"Countries not found in {indicator_code}: {missing_countries}")
+        df = df.loc[available_countries]
+    
+    # Filter by year range if specified
+    if start_year or end_year:
+        year_cols = df.columns
+        if start_year:
+            year_cols = [y for y in year_cols if y >= start_year]
+        if end_year:
+            year_cols = [y for y in year_cols if y <= end_year]
+        if not year_cols:
+            warnings.warn(f"No data found for year range {start_year}-{end_year}")
+            return pd.DataFrame()
+        df = df[year_cols]
+    
+    return df
+
+
+def load_gdp_per_capita(
+    countries: Optional[List[str]] = None,
+    start_year: Optional[int] = None,
+    end_year: Optional[int] = None,
+    auto_download: bool = True
+) -> pd.DataFrame:
+    """Load GDP per capita data (current US$) from World Bank.
+    
+    Convenience wrapper for load_worldbank_indicator('NY.GDP.PCAP.CD', ...).
+    GDP per capita is the most common metric for economic development and is
+    widely used to validate economic fitness scores.
+    
+    Args:
+        countries: Optional list of ISO3 country codes to filter
+        start_year: Start year for data (default: all available, typically 1960+)
+        end_year: End year for data (default: all available, typically up to 2 years ago)
+        auto_download: If True, automatically download data if not cached
+        
+    Returns:
+        DataFrame with country codes as index and years as columns
+        - Values are in current US dollars
+        - Coverage: 200+ countries, 1960-present (typically 1-2 years lag)
+        
+    Examples:
+        >>> from fitkit import load_gdp_per_capita, load_atlas_trade, fitness_complexity
+        >>> 
+        >>> # Load GDP for recent period
+        >>> gdp_df = load_gdp_per_capita(start_year=2000, end_year=2020)
+        >>> 
+        >>> # Merge with fitness data
+        >>> M, countries, _ = load_atlas_trade(year=2020)
+        >>> F, _, _ = fitness_complexity(M)
+        >>> countries['fitness'] = F
+        >>> 
+        >>> comparison = countries.merge(
+        ...     gdp_df[[2020]], 
+        ...     left_on='country', 
+        ...     right_index=True
+        ... )
+        >>> print(comparison[['country', 'fitness', 2020]].head())
+        
+    Notes:
+        - Uses current US$ (not adjusted for inflation or PPP)
+        - For PPP-adjusted GDP, use: load_worldbank_indicator('NY.GDP.PCAP.PP.CD')
+        - For constant prices, use: load_worldbank_indicator('NY.GDP.PCAP.KD')
+        
+    Data Source:
+        World Bank World Development Indicators
+        https://data.worldbank.org/indicator/NY.GDP.PCAP.CD
+    """
+    return load_worldbank_indicator(
+        'NY.GDP.PCAP.CD',
+        countries=countries,
+        start_year=start_year,
+        end_year=end_year,
+        auto_download=auto_download
+    )
+
+
+def load_human_capital_index(
+    countries: Optional[List[str]] = None,
+    start_year: Optional[int] = None,
+    end_year: Optional[int] = None,
+    auto_download: bool = True
+) -> pd.DataFrame:
+    """Load Human Capital Index (HCI) data from World Bank.
+    
+    Convenience wrapper for load_worldbank_indicator('HD.HCI.OVRL', ...).
+    The HCI measures the human capital that a child born today can expect to
+    attain by age 18, given the risks of poor health and poor education.
+    
+    Args:
+        countries: Optional list of ISO3 country codes to filter
+        start_year: Start year for data (default: all available, typically 2010+)
+        end_year: End year for data (default: all available)
+        auto_download: If True, automatically download data if not cached
+        
+    Returns:
+        DataFrame with country codes as index and years as columns
+        - Values range from 0 to 1 (1 = best possible outcomes)
+        - Coverage: 170+ countries, periodic releases (2010, 2012, 2017, 2020)
+        - Not all years available (periodic updates, not annual)
+        
+    Examples:
+        >>> from fitkit import load_human_capital_index, load_gdp_per_capita
+        >>> 
+        >>> # Load HCI for most recent year
+        >>> hci_df = load_human_capital_index(start_year=2020, end_year=2020)
+        >>> print(f"Countries with HCI data: {len(hci_df)}")
+        >>> 
+        >>> # Compare HCI with GDP
+        >>> gdp_df = load_gdp_per_capita(start_year=2020, end_year=2020)
+        >>> comparison = hci_df[[2020]].join(gdp_df[[2020]], lsuffix='_hci', rsuffix='_gdp')
+        >>> print(comparison.corr())
+        >>> 
+        >>> # Analyze fitness-HCI relationship
+        >>> from fitkit import load_atlas_trade, fitness_complexity
+        >>> M, countries, _ = load_atlas_trade(year=2020)
+        >>> F, _, _ = fitness_complexity(M)
+        >>> # ... merge with HCI data
+        
+    Notes:
+        - HCI = 0.50 means a child will be only 50% as productive as possible
+        - Components: survival, education years, test scores, health
+        - Data only available for specific years (not annual)
+        - For components, use: 'HD.HCI.EYRS', 'HD.HCI.LAYS', 'HD.HCI.HLOS', 'HD.HCI.MORT'
+        
+    Interpretation:
+        - >0.70: High human capital
+        - 0.50-0.70: Medium human capital
+        - <0.50: Low human capital
+        
+    Data Source:
+        World Bank Human Capital Project
+        https://www.worldbank.org/en/publication/human-capital
+        https://data.worldbank.org/indicator/HD.HCI.OVRL
+    """
+    return load_worldbank_indicator(
+        'HD.HCI.OVRL',
+        countries=countries,
+        start_year=start_year,
+        end_year=end_year,
+        auto_download=auto_download
+    )
+
+
+def list_worldbank_available_countries(
+    indicator_code: str,
+    auto_download: bool = True
+) -> List[str]:
+    """List countries with available data for a specific World Bank indicator.
+    
+    Args:
+        indicator_code: World Bank indicator code (e.g., 'NY.GDP.PCAP.CD')
+        auto_download: If True, download indicator data if not cached
+        
+    Returns:
+        List of ISO3 country codes with data for this indicator
+        
+    Examples:
+        >>> from fitkit.datasets import list_worldbank_available_countries
+        >>> 
+        >>> # Check GDP coverage
+        >>> gdp_countries = list_worldbank_available_countries('NY.GDP.PCAP.CD')
+        >>> print(f"GDP data available for {len(gdp_countries)} countries")
+        >>> 
+        >>> # Check HCI coverage (smaller than GDP)
+        >>> hci_countries = list_worldbank_available_countries('HD.HCI.OVRL')
+        >>> print(f"HCI data available for {len(hci_countries)} countries")
+        >>> 
+        >>> # Find countries in both datasets
+        >>> both = set(gdp_countries) & set(hci_countries)
+        >>> print(f"Countries in both: {len(both)}")
+    """
+    df = load_worldbank_indicator(indicator_code, auto_download=auto_download)
+    return sorted(df.index.tolist())

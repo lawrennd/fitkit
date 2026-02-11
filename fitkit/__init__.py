@@ -37,6 +37,10 @@ from fitkit.datasets import (
     load_world_trade_raw_1998_2000,
     load_atlas_trade,
     list_atlas_available_years,
+    load_worldbank_indicator,
+    load_gdp_per_capita,
+    load_human_capital_index,
+    list_worldbank_available_countries,
 )
 
 __all__ = [
@@ -46,5 +50,9 @@ __all__ = [
     "load_world_trade_raw_1998_2000",
     "load_atlas_trade",
     "list_atlas_available_years",
+    "load_worldbank_indicator",
+    "load_gdp_per_capita",
+    "load_human_capital_index",
+    "list_worldbank_available_countries",
     "__version__",
 ]
