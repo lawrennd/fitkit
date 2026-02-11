@@ -118,12 +118,27 @@ class FitnessComplexity:
         n_iter: Maximum number of iterations (default: 200).
         tol: Convergence tolerance on max absolute change (default: 1e-10).
         verbose: If True, print convergence message (default: True).
+        min_ubiquity: Minimum number of countries/users that must export/use a product/word
+            for it to be included (default: 3). Products with lower ubiquity are filtered out
+            to prevent numerical collapse. Based on empirical testing, ubiquity ≥ 3 is needed
+            for numerical stability on real-world trade data.
+        min_diversification: Minimum number of products/words that a country/user must 
+            export/use to be included (default: 5). Countries with lower diversification
+            are filtered out.
+        iterative_filter: If True, iteratively reapply filters until matrix size stabilizes
+            (default: True). Removing nodes can affect connectivity of remaining nodes.
 
     Attributes (after fit):
         fitness_: Fitted country/user fitness scores (n_rows,), normalized to mean 1.
+            For filtered entities, fitness is NaN.
         complexity_: Fitted product/word complexity scores (n_cols,), normalized to mean 1.
+            For filtered entities, complexity is NaN.
         n_iter_: Number of iterations performed.
         converged_: Whether algorithm converged.
+        country_mask_: Boolean array indicating which countries/users were kept (not filtered).
+        product_mask_: Boolean array indicating which products/words were kept (not filtered).
+        n_countries_filtered_: Number of countries/users filtered out.
+        n_products_filtered_: Number of products/words filtered out.
         
     Notes:
         Following scikit-learn conventions, only minimal convergence diagnostics
@@ -131,20 +146,37 @@ class FitnessComplexity:
         used by sklearn.linear_model.LogisticRegression and similar iterative
         estimators.
         
+        Filtering for numerical stability: By default, the estimator filters out
+        products with ubiquity < 2 (exported by only 1 country) and countries with
+        diversification < 5. This prevents numerical collapse where unique products
+        cause extreme fitness concentration. Filtering is standard practice in the
+        economic complexity literature. Set `min_ubiquity=1` and `min_diversification=1`
+        to disable filtering (not recommended for real-world data).
+        
         For detailed convergence history (per-iteration dF, dQ values), use the
         deprecated `fitness_complexity()` function with `return_history=True`. 
         This is intended for debugging and research, not typical usage.
 
     Examples:
         >>> from fitkit.algorithms import FitnessComplexity
+        >>> # Basic usage with default filtering (recommended)
         >>> fc = FitnessComplexity(n_iter=200, tol=1e-10)
         >>> fc.fit(M)  # M is binary incidence matrix
         >>> F = fc.fitness_
         >>> Q = fc.complexity_
         >>> print(f"Converged: {fc.converged_}, iterations: {fc.n_iter_}")
+        >>> print(f"Filtered {fc.n_countries_filtered_} countries, {fc.n_products_filtered_} products")
 
         >>> # Or: one-liner
         >>> F, Q = FitnessComplexity(n_iter=200).fit_transform(M)
+        
+        >>> # Conservative filtering for high-density networks
+        >>> fc = FitnessComplexity(min_ubiquity=5, min_diversification=10)
+        >>> F, Q = fc.fit_transform(M)
+        
+        >>> # Disable filtering (not recommended, may cause numerical collapse)
+        >>> fc = FitnessComplexity(min_ubiquity=1, min_diversification=1)
+        >>> F, Q = fc.fit_transform(M)
         
         >>> # For detailed convergence diagnostics (debugging):
         >>> from fitkit.algorithms import fitness_complexity
@@ -156,17 +188,33 @@ class FitnessComplexity:
         Tacchella et al. (2012). "A New Metrics for Countries' Fitness and Products' Complexity".
     """
 
-    def __init__(self, n_iter: int = 200, tol: float = 1e-10, verbose: bool = True):
+    def __init__(
+        self, 
+        n_iter: int = 200, 
+        tol: float = 1e-10, 
+        verbose: bool = True,
+        min_ubiquity: int = 3,
+        min_diversification: int = 5,
+        iterative_filter: bool = True
+    ):
         """Initialize FitnessComplexity estimator.
 
         Args:
             n_iter: Maximum number of iterations.
             tol: Convergence tolerance.
             verbose: If True, print convergence message.
+            min_ubiquity: Minimum ubiquity (countries per product) to keep product (default: 3).
+                Products exported by fewer countries are filtered to prevent numerical collapse.
+            min_diversification: Minimum diversification (products per country) to keep country (default: 5).
+                Countries exporting fewer products are filtered.
+            iterative_filter: If True, iteratively reapply filters until stable (default: True).
         """
         self.n_iter = n_iter
         self.tol = tol
         self.verbose = verbose
+        self.min_ubiquity = min_ubiquity
+        self.min_diversification = min_diversification
+        self.iterative_filter = iterative_filter
 
     def fit(self, X: sp.spmatrix, y: np.ndarray | None = None):
         """Compute Fitness-Complexity fixed point on binary incidence matrix X.
@@ -179,17 +227,122 @@ class FitnessComplexity:
         Returns:
             self: Fitted estimator.
         """
-        F, Q, history = _fitness_complexity(
-            X, n_iter=self.n_iter, tol=self.tol, 
+        n_countries_orig, n_products_orig = X.shape
+        
+        # Apply filtering to remove low-connectivity nodes
+        M_filtered, country_mask, product_mask = self._filter_matrix(X)
+        
+        # Store masks for reference
+        self.country_mask_ = country_mask
+        self.product_mask_ = product_mask
+        self.n_countries_filtered_ = int((~country_mask).sum())
+        self.n_products_filtered_ = int((~product_mask).sum())
+        
+        if self.verbose and (self.n_countries_filtered_ > 0 or self.n_products_filtered_ > 0):
+            print(f"Filtered {self.n_countries_filtered_} countries, "
+                  f"{self.n_products_filtered_} products due to low connectivity")
+        
+        # Check if filtered matrix is empty or too small
+        n_countries_filt, n_products_filt = M_filtered.shape
+        if n_countries_filt == 0 or n_products_filt == 0:
+            if self.verbose:
+                print("Warning: Filtering removed all nodes. Returning NaN arrays.")
+            self.fitness_ = np.full(n_countries_orig, np.nan)
+            self.complexity_ = np.full(n_products_orig, np.nan)
+            self.n_iter_ = 0
+            self.converged_ = False
+            return self
+        
+        # Run algorithm on filtered matrix
+        F_filtered, Q_filtered, history = _fitness_complexity(
+            M_filtered, n_iter=self.n_iter, tol=self.tol, 
             return_history=True, verbose=self.verbose
         )
         
-        self.fitness_ = F
-        self.complexity_ = Q
+        # Expand results back to original dimensions (NaN for filtered nodes)
+        self.fitness_ = self._expand_to_original(F_filtered, country_mask, n_countries_orig)
+        self.complexity_ = self._expand_to_original(Q_filtered, product_mask, n_products_orig)
         self.n_iter_ = history["n_iter"]
         self.converged_ = history["converged"]
 
         return self
+
+    def _filter_matrix(self, X: sp.spmatrix):
+        """Filter out low-connectivity nodes from the matrix.
+        
+        Args:
+            X: Original sparse matrix.
+            
+        Returns:
+            M_filtered: Filtered sparse matrix.
+            country_mask: Boolean array indicating which countries were kept.
+            product_mask: Boolean array indicating which products were kept.
+        """
+        n_countries, n_products = X.shape
+        M_filtered = X.copy()
+        
+        # Initialize masks (all True initially)
+        country_mask = np.ones(n_countries, dtype=bool)
+        product_mask = np.ones(n_products, dtype=bool)
+        
+        if self.iterative_filter:
+            # Iteratively filter until matrix size stabilizes
+            prev_shape = (-1, -1)
+            iteration = 0
+            while M_filtered.shape != prev_shape:
+                prev_shape = M_filtered.shape
+                iteration += 1
+                
+                # Filter low-diversification countries (rows)
+                diversification = np.asarray(M_filtered.sum(axis=1)).ravel()
+                valid_countries = diversification >= self.min_diversification
+                
+                # Update global mask
+                temp_indices = np.where(country_mask)[0]
+                country_mask[temp_indices[~valid_countries]] = False
+                
+                M_filtered = M_filtered[valid_countries, :]
+                
+                # Filter low-ubiquity products (columns)
+                ubiquity = np.asarray(M_filtered.sum(axis=0)).ravel()
+                valid_products = ubiquity >= self.min_ubiquity
+                
+                # Update global mask
+                temp_indices = np.where(product_mask)[0]
+                product_mask[temp_indices[~valid_products]] = False
+                
+                M_filtered = M_filtered[:, valid_products]
+                
+                if iteration > 100:  # Safety check
+                    raise RuntimeError("Filtering did not stabilize after 100 iterations")
+        else:
+            # Single-pass filtering
+            diversification = np.asarray(M_filtered.sum(axis=1)).ravel()
+            valid_countries = diversification >= self.min_diversification
+            country_mask = valid_countries
+            M_filtered = M_filtered[valid_countries, :]
+            
+            ubiquity = np.asarray(M_filtered.sum(axis=0)).ravel()
+            valid_products = ubiquity >= self.min_ubiquity
+            product_mask = valid_products
+            M_filtered = M_filtered[:, valid_products]
+        
+        return M_filtered, country_mask, product_mask
+    
+    def _expand_to_original(self, values_filtered: np.ndarray, mask: np.ndarray, n_orig: int):
+        """Expand filtered values back to original dimensions with NaN for filtered nodes.
+        
+        Args:
+            values_filtered: Values for the filtered subset.
+            mask: Boolean mask indicating which original indices were kept.
+            n_orig: Original number of elements.
+            
+        Returns:
+            Array of length n_orig with NaN for filtered elements.
+        """
+        result = np.full(n_orig, np.nan, dtype=float)
+        result[mask] = values_filtered
+        return result
 
     def fit_transform(self, X: sp.spmatrix, y: np.ndarray | None = None):
         """Fit and return (fitness, complexity).
