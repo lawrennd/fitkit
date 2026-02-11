@@ -1,9 +1,9 @@
 ---
 id: "0003"
 title: "Set up continuous integration with GitHub Actions"
-status: "Accepted"
+status: "Closed"
 created: "2026-02-02"
-last_updated: "2026-02-02"
+last_updated: "2026-02-11"
 author: "Neil Lawrennd"
 compressed: false
 related_requirements:
@@ -25,7 +25,7 @@ tags:
 - [x] Accepted
 - [x] In Progress
 - [x] Implemented
-- [ ] Closed
+- [x] Closed
 
 ## Summary
 
@@ -223,10 +223,10 @@ This CIP implements:
 
 ## Implementation Status
 
-- [ ] Create `.github/workflows/ci.yml`
-- [ ] Update `pyproject.toml` with test/dev dependencies and tool configs
-- [ ] Verify CI runs successfully on a test branch
-- [ ] Enable branch protection (optional)
+- [x] Create `.github/workflows/ci.yml`
+- [x] Update `pyproject.toml` with test/dev dependencies and tool configs
+- [x] Verify CI runs successfully on a test branch
+- [ ] Enable branch protection (optional, deferred)
 
 ## References
 
