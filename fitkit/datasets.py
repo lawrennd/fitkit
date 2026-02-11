@@ -1014,3 +1014,94 @@ def list_worldbank_available_countries(
         countries = [c for c in countries if c not in aggregates]
     
     return sorted(countries)
+
+
+def load_country_names(auto_download: bool = True) -> Dict[str, str]:
+    """Load mapping of ISO3 country codes to full country names.
+    
+    Downloads and caches country metadata from World Bank API, providing
+    a convenient mapping for visualization and reporting.
+    
+    Args:
+        auto_download: If True, automatically download data if not cached
+        
+    Returns:
+        Dictionary mapping ISO3 codes (e.g., 'USA') to full names (e.g., 'United States')
+        
+    Examples:
+        >>> from fitkit.datasets import load_country_names
+        >>> country_names = load_country_names()
+        >>> print(country_names['DEU'])
+        Germany
+        >>> print(country_names['USA'])
+        United States
+        
+    Notes:
+        - Data is cached locally after first download (~50KB)
+        - Includes all countries in World Bank database (~200+ countries)
+        - Excludes regional/income aggregates
+        - Updates can be forced by deleting the cache file
+        
+    References:
+        World Bank Data API: https://datahelpdesk.worldbank.org/knowledgebase/articles/889392
+    """
+    data_dir = get_data_dir() / "world_bank"
+    data_dir.mkdir(exist_ok=True)
+    
+    cache_file = data_dir / "country_names.json"
+    
+    # Check cache first
+    if cache_file.exists():
+        with open(cache_file, 'r') as f:
+            return json.load(f)
+    
+    if not auto_download:
+        raise FileNotFoundError(
+            f"Country names file not found: {cache_file}\n"
+            f"Set auto_download=True to download automatically from World Bank"
+        )
+    
+    # Download from World Bank API
+    print("Downloading country names from World Bank API...")
+    url = "https://api.worldbank.org/v2/country?format=json&per_page=500"
+    
+    try:
+        req = Request(url, headers={'User-Agent': 'fitkit'})
+        with urlopen(req, timeout=30) as response:
+            data = json.loads(response.read().decode('utf-8'))
+    except Exception as e:
+        raise RuntimeError(f"Failed to download country names from World Bank: {e}")
+    
+    # Parse response (first element is metadata, second is data)
+    if not isinstance(data, list) or len(data) < 2:
+        raise ValueError("Unexpected response format from World Bank API")
+    
+    countries_data = data[1]
+    
+    # Extract ISO3 code -> name mapping
+    country_names = {}
+    
+    # Regional and income aggregates to exclude (same as list_world_bank_countries)
+    aggregates = {
+        'ARB', 'CEB', 'CSS', 'EAP', 'EAR', 'EAS', 'ECA', 'ECS', 'EMU', 'EUU', 
+        'FCS', 'HIC', 'HPC', 'IBD', 'IBT', 'IDA', 'IDB', 'IDX', 'INX', 'LAC', 
+        'LCN', 'LDC', 'LIE', 'LIC', 'LMC', 'LMY', 'LTE', 'MAF', 'MCO', 'MEA', 
+        'MIC', 'MNA', 'NAC', 'NOC', 'OEC', 'OED', 'OSS', 'PRE', 'PSS', 'PST', 
+        'SAS', 'SSA', 'SSF', 'TEA', 'TEC', 'TLA', 'TMN', 'TSA', 'TSS', 'UMC', 'WLD'
+    }
+    
+    for country in countries_data:
+        iso3 = country.get('id', '')
+        name = country.get('name', '')
+        
+        # Skip aggregates and entries without proper code/name
+        if iso3 and name and iso3 not in aggregates:
+            country_names[iso3] = name
+    
+    # Save to cache
+    with open(cache_file, 'w') as f:
+        json.dump(country_names, f, indent=2)
+    
+    print(f"Downloaded {len(country_names)} country names to {cache_file}")
+    
+    return country_names
