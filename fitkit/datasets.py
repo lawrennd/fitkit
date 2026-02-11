@@ -959,6 +959,85 @@ def load_human_capital_index(
     )
 
 
+def load_life_expectancy(
+    countries: Optional[List[str]] = None,
+    start_year: Optional[int] = None,
+    end_year: Optional[int] = None,
+    auto_download: bool = True
+) -> pd.DataFrame:
+    """Load life expectancy at birth data (years) from World Bank.
+    
+    Convenience wrapper for load_worldbank_indicator('SP.DYN.LE00.IN', ...).
+    Life expectancy at birth indicates the number of years a newborn infant would
+    live if prevailing patterns of mortality at the time of birth stay constant.
+    
+    Args:
+        countries: Optional list of ISO3 country codes to filter
+        start_year: Start year for data (default: all available, typically 1960+)
+        end_year: End year for data (default: all available, typically up to 2 years ago)
+        auto_download: If True, automatically download data if not cached
+        
+    Returns:
+        DataFrame with country codes as index and years as columns
+        - Values are in years
+        - Coverage: 200+ countries, 1960-present (typically 1-2 years lag)
+        
+    Examples:
+        >>> from fitkit import load_life_expectancy, load_gdp_per_capita
+        >>> 
+        >>> # Load life expectancy for recent period
+        >>> life_exp_df = load_life_expectancy(start_year=2000, end_year=2020)
+        >>> 
+        >>> # Compare with GDP per capita
+        >>> gdp_df = load_gdp_per_capita(start_year=2020, end_year=2020)
+        >>> life_exp_2020 = life_exp_df[[2020]]
+        >>> comparison = life_exp_2020.join(gdp_df[[2020]], lsuffix='_le', rsuffix='_gdp')
+        >>> print(comparison.corr())
+        >>> 
+        >>> # Analyze fitness-life expectancy relationship
+        >>> from fitkit import load_atlas_trade, fitness_complexity
+        >>> M, countries, _ = load_atlas_trade(year=2020)
+        >>> F, _, _ = fitness_complexity(M)
+        >>> countries['fitness'] = F
+        >>> 
+        >>> comparison = countries.merge(
+        ...     life_exp_df[[2020]], 
+        ...     left_on='country', 
+        ...     right_index=True
+        ... )
+        >>> print(comparison[['country', 'fitness', 2020]].head())
+        
+    Notes:
+        - Life expectancy reflects overall mortality level of a population
+        - Strong correlation with GDP per capita and human development
+        - Often used as a key indicator of health and development outcomes
+        - Country codes compatible with Atlas data (205 countries overlap)
+        - World Bank includes regional aggregates (AFE, EAS, WLD, etc.)
+        - For merging with Atlas: use exclude_aggregates=True in list_worldbank_available_countries()
+        
+    Typical Values:
+        - High-income countries: 75-85 years
+        - Middle-income countries: 65-75 years
+        - Low-income countries: 50-65 years
+        
+    Data Source:
+        World Bank World Development Indicators
+        https://data.worldbank.org/indicator/SP.DYN.LE00.IN
+        
+        Based on data from:
+        - United Nations Population Division
+        - National vital registration systems
+        - Population censuses and surveys
+    """
+    return load_worldbank_indicator(
+        'SP.DYN.LE00.IN',
+        countries=countries,
+        start_year=start_year,
+        end_year=end_year,
+        auto_download=auto_download
+    )
+
+
 def list_worldbank_available_countries(
     indicator_code: str,
     auto_download: bool = True,

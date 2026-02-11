@@ -41,6 +41,7 @@ from fitkit.datasets import (
     load_worldbank_indicator,
     load_gdp_per_capita,
     load_human_capital_index,
+    load_life_expectancy,
     list_worldbank_available_countries,
     load_country_names,
 )
@@ -56,6 +57,7 @@ __all__ = [
     "load_worldbank_indicator",
     "load_gdp_per_capita",
     "load_human_capital_index",
+    "load_life_expectancy",
     "list_worldbank_available_countries",
     "load_country_names",
     "__version__",
