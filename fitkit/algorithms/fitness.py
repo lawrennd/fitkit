@@ -119,14 +119,16 @@ class FitnessComplexity:
         tol: Convergence tolerance on max absolute change (default: 1e-10).
         verbose: If True, print convergence message (default: True).
         min_ubiquity: Minimum number of countries/users that must export/use a product/word
-            for it to be included (default: 3). Products with lower ubiquity are filtered out
-            to prevent numerical collapse. Based on empirical testing, ubiquity ≥ 3 is needed
-            for numerical stability on real-world trade data.
+            for it to be included (default: 3). Products with lower ubiquity are more likely to create isolated
+            subgraphs that violate the connectivity assumption. Based on empirical testing,
+            ubiquity ≥ 3 is the minimum threshold for numerical stability on real-world data.
         min_diversification: Minimum number of products/words that a country/user must 
             export/use to be included (default: 5). Countries with lower diversification
-            are filtered out.
+            may create disconnected components.
         iterative_filter: If True, iteratively reapply filters until matrix size stabilizes
-            (default: True). Removing nodes can affect connectivity of remaining nodes.
+            (default: True). Removing nodes can cascade: a filtered product may leave a country
+            below min_diversification, which then needs filtering, which may affect other
+            products, etc.
 
     Attributes (after fit):
         fitness_: Fitted country/user fitness scores (n_rows,), normalized to mean 1.
@@ -146,12 +148,18 @@ class FitnessComplexity:
         used by sklearn.linear_model.LogisticRegression and similar iterative
         estimators.
         
-        Filtering for numerical stability: By default, the estimator filters out
-        products with ubiquity < 2 (exported by only 1 country) and countries with
-        diversification < 5. This prevents numerical collapse where unique products
-        cause extreme fitness concentration. Filtering is standard practice in the
-        economic complexity literature. Set `min_ubiquity=1` and `min_diversification=1`
-        to disable filtering (not recommended for real-world data).
+        **Filtering for numerical stability**: The Fitness-Complexity algorithm 
+        mathematically requires the bipartite graph to be **connected**. Disconnected
+        components or isolated subgraphs violate this assumption, causing numerical
+        collapse where one component dominates (e.g., one country gets all the fitness).
+        
+        By default, the estimator filters out products with ubiquity < 3 and countries
+        with diversification < 5. This heuristic prevents the most common cause of 
+        disconnection: products exported by only 1-2 countries create isolated 2-node
+        subgraphs. Filtering is standard practice in the economic complexity literature.
+        
+        Set `min_ubiquity=1` and `min_diversification=1` to disable filtering (not 
+        recommended for real-world data, as it can cause severe numerical instability).
         
         For detailed convergence history (per-iteration dF, dQ values), use the
         deprecated `fitness_complexity()` function with `return_history=True`. 

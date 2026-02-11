@@ -25,7 +25,9 @@ compressed: false
 
 ## Summary
 
-The Fitness-Complexity algorithm exhibits numerical collapse when applied to bipartite graphs with low-connectivity nodes (products exported by only one country, or countries exporting very few products). This manifests as extreme concentration of fitness on a single country (e.g., Germany with F=234) while all other countries have near-zero fitness.
+The Fitness-Complexity algorithm exhibits numerical collapse when applied to bipartite graphs with **disconnected components** or isolated subgraphs. This violates the algorithm's mathematical assumption that the bipartite graph is connected, which is necessary for the uniqueness of the fixed point solution.
+
+Low-connectivity nodes (products exported by very few countries, or countries exporting very few products) are the primary cause of graph disconnection. This manifests as extreme concentration of fitness on a single country (e.g., Germany with F=234) while all other countries have near-zero fitness.
 
 This CIP proposes adding preprocessing filters to remove low-connectivity nodes before running the Fitness-Complexity algorithm, following standard practice in the economic complexity literature.
 
@@ -42,25 +44,42 @@ Root cause: Germany exports 9 products that no other country exports (ubiquity =
 
 ### Mechanism of Failure
 
-The Fitness-Complexity fixed-point equations are:
+**Root Cause: Graph Disconnection**
+
+The Fitness-Complexity algorithm mathematically requires the bipartite graph (countries ↔ products) to be **connected**. From `fitness.py` docstring:
+> "The fixed point is unique up to the scale gauge **when the support graph is connected**."
+
+When the graph has disconnected components or isolated subgraphs:
+- The algorithm can converge to non-unique, degenerate solutions
+- Different components can have incompatible scales
+- Numerical collapse occurs as one component dominates
+
+**How Low Connectivity Creates Disconnection:**
+
+Products with ubiquity = 1 (exported by only one country) create isolated 2-node subgraphs:
+```
+Country_X ←→ Product_Y  (isolated from rest of graph)
+```
+
+This violates connectivity. The Fitness-Complexity equations:
 ```
 F_c = sum_p M_cp * Q_p
 Q_p = 1 / sum_c M_cp / F_c
 ```
 
-When a product has ubiquity = 1 (exported by only one country):
-1. That country gets high fitness from that product's complexity
-2. The product gets high complexity (denominator has only one term)
+behave pathologically on these isolated components:
+1. The isolated country gets high fitness from that product's complexity
+2. The product gets high complexity (denominator has only one term: 1/F_c)
 3. This creates positive feedback: high Q → higher F → even higher Q
-4. Meanwhile, other countries' products have lower complexity → lower fitness
-5. The algorithm converges to a degenerate solution with one dominant country
+4. Meanwhile, the connected component's products have lower complexity → lower fitness
+5. The algorithm converges to a degenerate solution with the isolated component dominating
 
-### Mathematical Context
+**Why Filtering Works:**
 
-From `fitness.py` docstring:
-> "The fixed point is unique up to the scale gauge **when the support graph is connected**."
-
-Products with ubiquity = 1 violate the connectivity assumption, creating disconnected components in the bipartite graph.
+Removing nodes with ubiquity < 3 and diversification < 5 is a heuristic that:
+- Prevents trivial 1-node and 2-node disconnected components
+- Increases the likelihood that the remaining graph is connected
+- Does not guarantee connectivity (more complex disconnections possible), but handles the most common cases
 
 ### Observed Data
 
