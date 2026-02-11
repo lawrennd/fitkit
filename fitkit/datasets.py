@@ -406,6 +406,122 @@ def list_atlas_available_years(
     return sorted(df['year'].unique().tolist())
 
 
+def load_atlas_product_names(
+    classification: Literal['hs92', 'sitc'] = 'hs92'
+) -> pd.DataFrame:
+    """
+    Load product classification with names and descriptions from the Atlas.
+    
+    Downloads and caches the Atlas product classification table that maps
+    product codes to human-readable names, sections, and groups.
+    
+    Args:
+        classification: Product classification system ('hs92' or 'sitc')
+            - 'hs92': ~6,000 products from 1995+ (Harmonized System 1992)
+            - 'sitc': ~900 products from 1962+ (SITC Rev. 2)
+    
+    Returns:
+        DataFrame with product information:
+        - HS92: columns ['product_id', 'hs_product_code', 'hs_product_name_short_en']
+        - SITC: columns ['product_id', 'sitc_product_code', 'sitc_product_name_short_en']
+        
+        Product codes include all aggregation levels:
+        - Single digit (0-9): top-level sections
+        - 2-digit (01-99): chapters
+        - 4-digit (0101-9999): detailed products
+    
+    Examples:
+        >>> from fitkit.datasets import load_atlas_product_names
+        >>> 
+        >>> # Load HS92 product names
+        >>> products = load_atlas_product_names('hs92')
+        >>> 
+        >>> # Look up specific products
+        >>> horses = products[products['hs_product_code'] == '0101']
+        >>> print(horses['hs_product_name_short_en'].values[0])
+        Horses
+        >>> 
+        >>> cars = products[products['hs_product_code'] == '8703']
+        >>> print(cars['hs_product_name_short_en'].values[0])
+        Cars
+        >>> 
+        >>> # Create a lookup dictionary for easy access
+        >>> product_names = dict(zip(
+        ...     products['hs_product_code'],
+        ...     products['hs_product_name_short_en']
+        ... ))
+        >>> print(product_names['0101'])
+        Horses
+        >>> 
+        >>> # Note: load_atlas_trade() with product_level=4 aggregates to 2-digit chapters
+        >>> # To use product names, you need the raw 4-digit codes from the Atlas data
+        >>> # Example: use pandas to load the raw data and merge with names
+        >>> import pandas as pd
+        >>> from fitkit.datasets import get_data_dir
+        >>> cache_file = get_data_dir() / "atlas/atlas_hs92_country_product_year.csv"
+        >>> raw_data = pd.read_csv(cache_file)
+        >>> raw_2015 = raw_data[raw_data['year'] == 2015]
+        >>> # Now merge with product names
+        >>> data_named = raw_2015.merge(
+        ...     products[['hs_product_code', 'hs_product_name_short_en']], 
+        ...     left_on='product_hs92_code', 
+        ...     right_on='hs_product_code',
+        ...     how='left'
+        ... )
+    
+    Notes:
+        - Data is downloaded from Harvard's Atlas bulk downloads
+        - Files are small (~80 KB for HS92, ~20 KB for SITC) and cached locally
+        - HS92 contains ~6,000 entries at all aggregation levels
+        - SITC contains ~900 entries at all aggregation levels
+        - Product codes are strings (may have leading zeros like '0101')
+        - The Atlas product classification includes hierarchical groupings
+    
+    See Also:
+        load_atlas_trade : Load Atlas trade data (note: returns aggregated codes)
+        get_data_dir : Get the data cache directory path
+    """
+    import zipfile
+    from urllib.request import urlopen, Request
+    from io import BytesIO
+    
+    data_dir = get_data_dir() / "atlas"
+    cache_file = data_dir / f"{classification}_product.csv"
+    
+    # Return cached data if available
+    if cache_file.exists():
+        return pd.read_csv(cache_file)
+    
+    # Download and extract
+    # Note: Files are named 'hs_product.zip' and 'sitc_product.zip' 
+    # (not 'hs92_product.zip')
+    filename = "hs_product.zip" if classification == "hs92" else "sitc_product.zip"
+    url = f"https://intl-atlas-downloads.s3.amazonaws.com/{filename}"
+    print(f"Downloading Atlas {classification.upper()} product names from {url}...")
+    
+    request = Request(url, headers={'User-Agent': 'fitkit Python package'})
+    with urlopen(request) as response:
+        zip_data = response.read()
+    
+    # Extract CSV from zip
+    with zipfile.ZipFile(BytesIO(zip_data)) as zf:
+        # Find the CSV file in the zip
+        csv_files = [name for name in zf.namelist() if name.endswith('.csv')]
+        if not csv_files:
+            raise ValueError(f"No CSV file found in {classification}_product.zip")
+        
+        csv_name = csv_files[0]
+        with zf.open(csv_name) as f:
+            df = pd.read_csv(f)
+    
+    # Save to cache
+    data_dir.mkdir(parents=True, exist_ok=True)
+    df.to_csv(cache_file, index=False)
+    
+    print(f"✓ Cached {classification.upper()} product names ({len(df)} products)")
+    return df
+
+
 # =============================================================================
 # World Bank Indicators Data Access
 # =============================================================================

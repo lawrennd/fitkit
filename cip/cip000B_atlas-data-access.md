@@ -67,6 +67,13 @@ The implementation follows the existing `fitkit.datasets` module pattern with tw
    - Helper to discover data coverage
    - Returns list of available years for a classification
 
+3. **`load_atlas_product_names(classification)`**
+   - Loads product classification table with human-readable names
+   - Maps product codes (e.g., '0101', '8703') to descriptions (e.g., 'Horses', 'Cars')
+   - Includes hierarchical structure (sections, chapters, products)
+   - Small files (~80KB for HS92, ~20KB for SITC) downloaded from Atlas S3
+   - Enables interpretable analysis and visualization
+
 ### Data Source: Harvard Dataverse API
 
 Atlas data is hosted on Harvard Dataverse at:
