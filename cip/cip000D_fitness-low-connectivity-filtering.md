@@ -18,7 +18,7 @@ compressed: false
 - [ ] Proposed
 - [ ] Accepted
 - [ ] In Progress
-- [ ] Implemented
+- [x] Implemented
 - [ ] Closed
 - [ ] Rejected
 - [ ] Deferred
@@ -257,16 +257,16 @@ None yet defined. This is a bug fix addressing a fundamental numerical issue.
 
 ## Implementation Status
 
-- [ ] Design complete
-- [ ] Filtering parameters added to `__init__`
-- [ ] Filtering logic implemented in `fit()`
-- [ ] Mask attributes added (`country_mask_`, `product_mask_`)
-- [ ] Expansion logic for filtered results
-- [ ] Unit tests written
-- [ ] Integration tests with Atlas data
-- [ ] Documentation updated
-- [ ] Notebooks updated
-- [ ] Validation against R package
+- [x] Design complete
+- [x] Filtering parameters added to `__init__` (min_ubiquity=3, min_diversification=5, iterative_filter=True)
+- [x] Filtering logic implemented in `fit()` (_filter_matrix helper method)
+- [x] Mask attributes added (`country_mask_`, `product_mask_`, `n_countries_filtered_`, `n_products_filtered_`)
+- [x] Expansion logic for filtered results (_expand_to_original helper method)
+- [x] Unit tests written (8 tests in test_fitness_filtering.py)
+- [x] Integration tests with Atlas data (2000 and 2020)
+- [x] Documentation updated (class docstring, parameter docs, examples)
+- [ ] Notebooks updated (atlas_fitness_comparison.ipynb - defaults now work)
+- [ ] Validation against R package (deferred - R uses less aggressive filtering)
 
 ## References
 
