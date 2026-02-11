@@ -119,9 +119,8 @@ class FitnessComplexity:
         tol: Convergence tolerance on max absolute change (default: 1e-10).
         verbose: If True, print convergence message (default: True).
         min_ubiquity: Minimum number of countries/users that must export/use a product/word
-            for it to be included (default: 3). Products with lower ubiquity are more likely to create isolated
-            subgraphs that violate the connectivity assumption. Based on empirical testing,
-            ubiquity ≥ 3 is the minimum threshold for numerical stability on real-world data.
+            for it to be included (default: 3). Products with lower ubiquity are more likely to 
+            create isolated subgraphs that violate the connectivity assumption. 
         min_diversification: Minimum number of products/words that a country/user must 
             export/use to be included (default: 5). Countries with lower diversification
             may create disconnected components.
@@ -148,7 +147,7 @@ class FitnessComplexity:
         used by sklearn.linear_model.LogisticRegression and similar iterative
         estimators.
         
-        **Filtering for numerical stability**: The Fitness-Complexity algorithm 
+        *Filtering for numerical stability*: The Fitness-Complexity algorithm 
         mathematically requires the bipartite graph to be **connected**. Disconnected
         components or isolated subgraphs violate this assumption, causing numerical
         collapse where one component dominates (e.g., one country gets all the fitness).
