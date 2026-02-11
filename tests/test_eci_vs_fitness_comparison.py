@@ -6,7 +6,7 @@ they produce different results.
 
 import numpy as np
 import scipy.sparse as sp
-from fitkit.algorithms import compute_eci_pci, fitness_complexity
+from fitkit.algorithms import ECI, FitnessComplexity
 
 
 def test_eci_vs_fitness_on_nested_matrix():
@@ -23,8 +23,11 @@ def test_eci_vs_fitness_on_nested_matrix():
         M_data.append(row)
     M = sp.csr_matrix(np.array(M_data))
     
-    eci, pci = compute_eci_pci(M)
-    F, Q, hist = fitness_complexity(M)
+    eci_model = ECI()
+    eci, pci = eci_model.fit_transform(M)
+    
+    fc = FitnessComplexity(verbose=False)
+    F, Q = fc.fit_transform(M)
     
     diversification = np.asarray(M.sum(axis=1)).ravel()
     log_F = np.log(F)
@@ -58,8 +61,11 @@ def test_eci_vs_fitness_on_random_matrix():
     M = sp.random(50, 75, density=0.15, format='csr', random_state=42)
     M.data = np.ones_like(M.data)
     
-    eci, pci = compute_eci_pci(M)
-    F, Q, hist = fitness_complexity(M)
+    eci_model = ECI()
+    eci, pci = eci_model.fit_transform(M)
+    
+    fc = FitnessComplexity(verbose=False)
+    F, Q = fc.fit_transform(M)
     
     diversification = np.asarray(M.sum(axis=1)).ravel()
     log_F = np.log(F)
@@ -93,8 +99,11 @@ def test_eci_vs_fitness_on_modular_matrix():
     
     M = sp.csr_matrix(M_data)
     
-    eci, pci = compute_eci_pci(M)
-    F, Q, hist = fitness_complexity(M)
+    eci_model = ECI()
+    eci, pci = eci_model.fit_transform(M)
+    
+    fc = FitnessComplexity(verbose=False)
+    F, Q = fc.fit_transform(M)
     
     diversification = np.asarray(M.sum(axis=1)).ravel()
     log_F = np.log(F)

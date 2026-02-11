@@ -46,7 +46,7 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 from pathlib import Path
-from fitkit.algorithms import fitness_complexity
+from fitkit.algorithms import FitnessComplexity
 import pytest
 
 
@@ -105,9 +105,10 @@ def compare_implementations(test_name: str, min_corr_fitness: float = 0.8, min_c
     print(f"Matrix density: {M.nnz / (M.shape[0] * M.shape[1]):.4f}")
     
     # Run Python implementation
-    py_fitness, py_complexity, history = fitness_complexity(M, n_iter=200, tol=1e-10)
+    fc = FitnessComplexity(n_iter=200, tol=1e-10, verbose=False)
+    py_fitness, py_complexity = fc.fit_transform(M)
     
-    print(f"Python converged in {len(history['dF'])} iterations")
+    print(f"Python converged in {fc.n_iter_} iterations (converged={fc.converged_})")
     
     # Compare results
     print("\n--- Summary Statistics ---")

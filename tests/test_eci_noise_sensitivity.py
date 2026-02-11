@@ -7,7 +7,7 @@ how quickly ECI breaks down as the nested structure is corrupted.
 import numpy as np
 import scipy.sparse as sp
 import matplotlib.pyplot as plt
-from fitkit.algorithms import compute_eci_pci
+from fitkit.algorithms import ECI, FitnessComplexity
 
 
 def create_nested_matrix(n_rows=50, n_cols=75):
@@ -127,9 +127,11 @@ def test_eci_shortcut_sensitivity():
         M = add_shortcuts(M_base, prob)
         
         # Compute ECI and Fitness
-        from fitkit.algorithms import fitness_complexity
-        eci, pci = compute_eci_pci(M)
-        F, Q, hist = fitness_complexity(M)
+        eci_model = ECI()
+        eci, pci = eci_model.fit_transform(M)
+        
+        fc = FitnessComplexity(verbose=False)
+        F, Q = fc.fit_transform(M)
         
         # Compute correlations with diversification
         div = np.asarray(M.sum(axis=1)).ravel()
@@ -193,9 +195,11 @@ def test_eci_gap_sensitivity():
         M = remove_edges(M_base, prob)
         
         # Compute ECI and Fitness
-        from fitkit.algorithms import fitness_complexity
-        eci, pci = compute_eci_pci(M)
-        F, Q, hist = fitness_complexity(M)
+        eci_model = ECI()
+        eci, pci = eci_model.fit_transform(M)
+        
+        fc = FitnessComplexity(verbose=False)
+        F, Q = fc.fit_transform(M)
         
         # Compute correlations with diversification
         div = np.asarray(M.sum(axis=1)).ravel()
@@ -335,9 +339,11 @@ def test_eci_community_structure():
         M = sp.csr_matrix(np.array(M_data))
         
         # Compute ECI and Fitness
-        from fitkit.algorithms import fitness_complexity
-        eci, pci = compute_eci_pci(M)
-        F, Q, hist = fitness_complexity(M)
+        eci_model = ECI()
+        eci, pci = eci_model.fit_transform(M)
+        
+        fc = FitnessComplexity(verbose=False)
+        F, Q = fc.fit_transform(M)
         
         # Compute correlations
         div = np.asarray(M.sum(axis=1)).ravel()

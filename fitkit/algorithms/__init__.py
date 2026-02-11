@@ -10,7 +10,7 @@ with deprecated functional APIs maintained for backward compatibility.
 - SinkhornScaler: Masked Sinkhorn-Knopp / IPF scaling
 
 **Functional APIs (DEPRECATED - use classes instead)**:
-- fitness_complexity: Use FitnessComplexity class instead
+- fitness_complexity: Use FitnessComplexity class instead (DEPRECATED)
 - compute_eci_pci: Use ECI class instead
 - compute_eci_pci_reflections: Use ECIReflections class instead (DEPRECATED)
 - check_eigengap: Use ECIReflections.check_eigengap() instead (DEPRECATED)

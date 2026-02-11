@@ -3,25 +3,25 @@
 import numpy as np
 import scipy.sparse as sp
 
-from fitkit.algorithms import FitnessComplexity, fitness_complexity
+from fitkit.algorithms import FitnessComplexity
 from fitkit.data.fixtures import create_small_fixture
 
 
 def test_fitness_convergence():
     """Test that fitness-complexity converges on a small fixture."""
     bundle = create_small_fixture()
-    F, Q, history = fitness_complexity(bundle.matrix, n_iter=100, tol=1e-10)
+    # Use larger n_iter to ensure convergence at tol=1e-10
+    fc = FitnessComplexity(n_iter=500, tol=1e-10, verbose=False)
+    F, Q = fc.fit_transform(bundle.matrix)
 
     # Check shapes
     assert F.shape == (5,)  # 5 users
     assert Q.shape == (8,)  # 8 words
 
-    # Check convergence (use reasonable tolerance for small fixture)
-    assert len(history["dF"]) > 0
-    assert len(history["dQ"]) > 0
-    # Convergence should improve over iterations (last < first)
-    assert history["dF"][-1] < history["dF"][0]
-    assert history["dQ"][-1] < history["dQ"][0]
+    # Check convergence attributes
+    assert fc.converged_, f"Should converge within {fc.n_iter} iterations"
+    assert fc.n_iter_ > 0
+    assert fc.n_iter_ <= 500
 
     # Check gauge: mean should be 1.0
     assert np.abs(F.mean() - 1.0) < 1e-10
@@ -31,7 +31,8 @@ def test_fitness_convergence():
 def test_fitness_positivity():
     """Test that fitness and complexity are always positive."""
     bundle = create_small_fixture()
-    F, Q, _ = fitness_complexity(bundle.matrix, n_iter=100)
+    fc = FitnessComplexity(n_iter=100, verbose=False)
+    F, Q = fc.fit_transform(bundle.matrix)
 
     assert np.all(F > 0)
     assert np.all(Q > 0)
@@ -45,7 +46,8 @@ def test_fitness_isolated_node():
     col = [0, 1, 0, 2, 1]
     M = sp.csr_matrix((data, (row, col)), shape=(4, 3), dtype=np.float64)
 
-    F, Q, _ = fitness_complexity(M, n_iter=50)
+    fc = FitnessComplexity(n_iter=50, verbose=False)
+    F, Q = fc.fit_transform(M)
 
     # Isolated user (row 3) should have very low fitness
     assert F[3] < F[:3].min()
@@ -59,8 +61,11 @@ def test_fitness_deterministic():
     """Test that fitness-complexity is deterministic (same input → same output)."""
     bundle = create_small_fixture()
 
-    F1, Q1, _ = fitness_complexity(bundle.matrix, n_iter=100, tol=1e-10)
-    F2, Q2, _ = fitness_complexity(bundle.matrix, n_iter=100, tol=1e-10)
+    fc1 = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False)
+    F1, Q1 = fc1.fit_transform(bundle.matrix)
+    
+    fc2 = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False)
+    F2, Q2 = fc2.fit_transform(bundle.matrix)
 
     np.testing.assert_array_almost_equal(F1, F2)
     np.testing.assert_array_almost_equal(Q1, Q2)
@@ -70,14 +75,16 @@ def test_fitness_ranking_stability():
     """Test that fitness rankings are stable across runs."""
     bundle = create_small_fixture()
 
-    F, Q, _ = fitness_complexity(bundle.matrix, n_iter=100)
+    fc1 = FitnessComplexity(n_iter=100, verbose=False)
+    F, Q = fc1.fit_transform(bundle.matrix)
 
     # Get rankings
     user_ranks = F.argsort()[::-1]  # Descending order
     word_ranks = Q.argsort()[::-1]
 
     # Re-run and check rankings are identical
-    F2, Q2, _ = fitness_complexity(bundle.matrix, n_iter=100)
+    fc2 = FitnessComplexity(n_iter=100, verbose=False)
+    F2, Q2 = fc2.fit_transform(bundle.matrix)
     user_ranks2 = F2.argsort()[::-1]
     word_ranks2 = Q2.argsort()[::-1]
 
@@ -91,7 +98,8 @@ def test_fitness_scale_invariance():
     M = bundle.matrix
 
     # Compute fitness on original matrix
-    F1, Q1, _ = fitness_complexity(M, n_iter=100)
+    fc1 = FitnessComplexity(n_iter=100, verbose=False)
+    F1, Q1 = fc1.fit_transform(M)
     ranks_F1 = F1.argsort()
     ranks_Q1 = Q1.argsort()
 
@@ -99,7 +107,8 @@ def test_fitness_scale_invariance():
     M_scaled = M * 2.0
     M_scaled.data = np.ones_like(M_scaled.data)  # Re-binarize
 
-    F2, Q2, _ = fitness_complexity(M_scaled, n_iter=100)
+    fc2 = FitnessComplexity(n_iter=100, verbose=False)
+    F2, Q2 = fc2.fit_transform(M_scaled)
     ranks_F2 = F2.argsort()
     ranks_Q2 = Q2.argsort()
 
@@ -113,7 +122,8 @@ def test_fitness_empty_matrix():
     M = sp.csr_matrix((5, 8), dtype=np.float64)  # All zeros
 
     # Should complete without crashing (though results are degenerate)
-    F, Q, _ = fitness_complexity(M, n_iter=10)
+    fc = FitnessComplexity(n_iter=10, verbose=False)
+    F, Q = fc.fit_transform(M)
 
     assert F.shape == (5,)
     assert Q.shape == (8,)
@@ -136,12 +146,16 @@ def test_fitness_estimator_basic():
     # Check fitted attributes exist
     assert hasattr(fc, 'fitness_')
     assert hasattr(fc, 'complexity_')
-    assert hasattr(fc, 'history_')
     assert hasattr(fc, 'n_iter_')
+    assert hasattr(fc, 'converged_')
 
     # Check shapes
     assert fc.fitness_.shape == (5,)
     assert fc.complexity_.shape == (8,)
+    
+    # Check convergence attributes
+    assert isinstance(fc.n_iter_, int)
+    assert isinstance(fc.converged_, bool)
 
 
 def test_fitness_estimator_fit_transform():
@@ -161,11 +175,15 @@ def test_fitness_estimator_fit_transform():
 
 
 def test_fitness_estimator_vs_functional():
-    """Test that estimator produces same results as functional API."""
+    """Test that estimator produces same results as deprecated functional API."""
     bundle = create_small_fixture()
 
-    # Functional API
-    F_func, Q_func, history_func = fitness_complexity(bundle.matrix, n_iter=100, tol=1e-10)
+    # Functional API (deprecated, but test compatibility)
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        from fitkit.algorithms import fitness_complexity
+        F_func, Q_func, history_func = fitness_complexity(bundle.matrix, n_iter=100, tol=1e-10)
 
     # Estimator API
     fc = FitnessComplexity(n_iter=100, tol=1e-10, verbose=False)
