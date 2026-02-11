@@ -232,23 +232,33 @@ def load_atlas_trade(
         classification: Product classification system (currently supported: 'hs92', 'sitc')
             - 'hs92': Harmonized System 1992 (1995-2023)
             - 'sitc': Standard International Trade Classification (1962-2023)
-        product_level: Digit level for product aggregation (2, 4, or 6 for HS92; 4 for SITC)
+        product_level: Digit level for product aggregation
+            - HS92: 1-4 digits (e.g., 1='Textiles', 2='01'=Live Animals, 4='0101'=Horses)
+            - SITC: 1-4 digits (e.g., 1='Food', 2='00', 4='0001')
         rca_threshold: Threshold for binarizing RCA (default: 1.0)
         auto_download: If True, automatically download data if not cached (~50-200 MB per classification)
         
     Returns:
         M: Binary Balassa index matrix (countries × products), sparse CSR format
         countries: DataFrame with columns ['idx', 'country'] mapping matrix rows to country codes
-        products: DataFrame with columns ['idx', 'product'] mapping matrix columns to product codes
+        products: DataFrame with columns ['idx', 'product', 'product_name'] mapping matrix columns 
+                  to product codes and human-readable names
         
     Examples:
         >>> from fitkit.datasets import load_atlas_trade
         >>> from fitkit.algorithms import fitness_complexity
         >>> 
-        >>> # Load HS92 data for 2010
-        >>> M, countries, products = load_atlas_trade(year=2010, classification='hs92')
+        >>> # Load HS92 data for 2010 with 4-digit products
+        >>> M, countries, products = load_atlas_trade(year=2010, classification='hs92', product_level=4)
         >>> print(f"Matrix shape: {M.shape}")
         >>> print(f"Density: {M.nnz / (M.shape[0] * M.shape[1]):.4f}")
+        >>> 
+        >>> # Products now include names
+        >>> print(products.head())
+        >>> #    idx product product_name
+        >>> # 0    0    0101       Horses
+        >>> # 1    1    0102      Donkeys
+        >>> # ...
         >>> 
         >>> # Compute fitness-complexity
         >>> F, Q, history = fitness_complexity(M)
@@ -256,12 +266,22 @@ def load_atlas_trade(
         >>> # Show top 10 fittest countries
         >>> countries['fitness'] = F
         >>> print(countries.nlargest(10, 'fitness')[['country', 'fitness']])
+        >>> 
+        >>> # Aggregate to 2-digit chapter level
+        >>> M, countries, products = load_atlas_trade(year=2010, product_level=2)
+        >>> print(products[['product', 'product_name']].head())
+        >>> #   product    product_name
+        >>> # 0      01     Live animals
+        >>> # 1      02            Meat
+        >>> # ...
         
     Notes:
-        - Data is cached locally after first download
-        - First call will download ~50-200MB depending on classification
+        - Data is cached locally after first download (~50-200MB)
+        - Product names are automatically included from Atlas classification tables
+        - First call downloads both trade data and product names (~80KB)
         - Coverage varies by year and classification
-        - Product codes are zero-padded to specified digit level
+        - Product codes are truncated to the specified digit level
+        - HS92 source data has 4-digit codes; SITC has 4-digit codes
         
     References:
         The Growth Lab at Harvard University. The Atlas of Economic Complexity.
@@ -343,7 +363,13 @@ def load_atlas_trade(
             product_col = 'hs_product_code'
         else:
             raise ValueError(f"Could not find HS product column. Available columns: {df_year.columns.tolist()}")
-        df_year['product_code'] = df_year[product_col].astype(str).str.zfill(6).str[:product_level]
+        # HS codes in the Atlas data are already 4 digits (e.g., '0101', '8703')
+        # For product_level < 4, truncate to that many digits
+        # For product_level = 4, use as-is
+        # For product_level > 4, we'd need the original 6-digit data (not available here)
+        if product_level > 4:
+            raise ValueError(f"product_level > 4 requires 6-digit HS data, which is not available in this dataset")
+        df_year['product_code'] = df_year[product_col].astype(str).str[:product_level]
     else:
         # SITC codes
         if 'product_sitc_code' in df_year.columns:
@@ -352,7 +378,10 @@ def load_atlas_trade(
             product_col = 'sitc_product_code'
         else:
             raise ValueError(f"Could not find SITC product column. Available columns: {df_year.columns.tolist()}")
-        df_year['product_code'] = df_year[product_col].astype(str).str.zfill(4).str[:product_level]
+        # SITC codes are 4 digits, truncate as needed
+        if product_level > 4:
+            raise ValueError(f"product_level > 4 exceeds SITC classification depth (max 4 digits)")
+        df_year['product_code'] = df_year[product_col].astype(str).str[:product_level]
     
     # Aggregate export values at the chosen product level
     df_year = df_year.groupby(['location_code', 'product_code'], as_index=False)['export_value'].sum()
@@ -365,6 +394,28 @@ def load_atlas_trade(
     
     print(f"Matrix shape: {M.shape[0]} countries × {M.shape[1]} products")
     print(f"Density: {M.nnz / (M.shape[0] * M.shape[1]):.4f}")
+    
+    # Add product names
+    product_names_df = load_atlas_product_names(classification)
+    
+    # Create lookup dictionary from the product names DataFrame
+    if classification.startswith('hs'):
+        name_col = 'hs_product_name_short_en'
+        code_col = 'hs_product_code'
+    else:
+        name_col = 'sitc_product_name_short_en'
+        code_col = 'sitc_product_code'
+    
+    product_names_dict = dict(zip(
+        product_names_df[code_col].astype(str),
+        product_names_df[name_col]
+    ))
+    
+    # Add product names to the products DataFrame
+    products['product_name'] = products['product'].map(product_names_dict)
+    
+    # Fill missing names with a placeholder (for aggregated codes that don't have exact matches)
+    products['product_name'] = products['product_name'].fillna('Unknown')
     
     return M, countries, products
 

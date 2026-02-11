@@ -218,7 +218,9 @@ print(countries_2000.nlargest(10, 'fitness'))
 - [x] Design data loader API
 - [x] Implement Dataverse download with redirect handling
 - [x] Implement RCA computation
-- [x] Add product aggregation logic
+- [x] Add product aggregation logic (fixed incorrect zfill approach)
+- [x] Add product names loader (`load_atlas_product_names`)
+- [x] Auto-include product names in `load_atlas_trade` output
 - [x] Create comprehensive demonstration notebook
 - [x] Add exports to package `__init__.py`
 - [x] Update `.gitignore` for cached data
