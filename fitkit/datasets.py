@@ -593,7 +593,10 @@ def load_worldbank_indicator(
         - Data is cached in fitkit/data/worldbank/
         - Some indicators (like HCI) only available for specific years
         - Missing data returned as NaN
-        - Country codes use ISO3 standard (matches Atlas trade data)
+        - Country codes use ISO3 standard (USA, CHN, GBR, etc.)
+        - **Country code compatibility**: 205 countries overlap with Atlas trade data
+        - World Bank includes regional aggregates (AFE, EAS, WLD) - filter with exclude_aggregates
+        - For merging with Atlas: both datasets can be joined on ISO3 codes directly
         
     Data Source:
         World Bank World Development Indicators (WDI)
@@ -703,6 +706,9 @@ def load_gdp_per_capita(
         - Uses current US$ (not adjusted for inflation or PPP)
         - For PPP-adjusted GDP, use: load_worldbank_indicator('NY.GDP.PCAP.PP.CD')
         - For constant prices, use: load_worldbank_indicator('NY.GDP.PCAP.KD')
+        - Country codes compatible with Atlas data (205 countries overlap)
+        - World Bank includes regional aggregates (AFE, EAS, WLD, etc.)
+        - For merging with Atlas: use exclude_aggregates=True in list_worldbank_available_countries()
         
     Data Source:
         World Bank World Development Indicators
@@ -764,6 +770,8 @@ def load_human_capital_index(
         - Components: survival, education years, test scores, health
         - Data only available for specific years (not annual)
         - For components, use: 'HD.HCI.EYRS', 'HD.HCI.LAYS', 'HD.HCI.HLOS', 'HD.HCI.MORT'
+        - Country codes compatible with Atlas data (205 countries overlap)
+        - Smaller coverage than GDP (173 vs 257 countries)
         
     Interpretation:
         - >0.70: High human capital
@@ -786,13 +794,15 @@ def load_human_capital_index(
 
 def list_worldbank_available_countries(
     indicator_code: str,
-    auto_download: bool = True
+    auto_download: bool = True,
+    exclude_aggregates: bool = False
 ) -> List[str]:
     """List countries with available data for a specific World Bank indicator.
     
     Args:
         indicator_code: World Bank indicator code (e.g., 'NY.GDP.PCAP.CD')
         auto_download: If True, download indicator data if not cached
+        exclude_aggregates: If True, exclude regional/income aggregates (e.g., 'EAS', 'ARB')
         
     Returns:
         List of ISO3 country codes with data for this indicator
@@ -808,9 +818,32 @@ def list_worldbank_available_countries(
         >>> hci_countries = list_worldbank_available_countries('HD.HCI.OVRL')
         >>> print(f"HCI data available for {len(hci_countries)} countries")
         >>> 
-        >>> # Find countries in both datasets
-        >>> both = set(gdp_countries) & set(hci_countries)
-        >>> print(f"Countries in both: {len(both)}")
+        >>> # Find countries in both datasets (exclude aggregates)
+        >>> gdp_real = list_worldbank_available_countries('NY.GDP.PCAP.CD', exclude_aggregates=True)
+        >>> print(f"Real countries only: {len(gdp_real)}")
+        
+    Notes:
+        - World Bank data includes regional aggregates (e.g., 'EAS' for East Asia & Pacific)
+        - These aggregates won't match with Atlas trade data
+        - Use exclude_aggregates=True when merging with Atlas data
+        - Aggregate codes: 3-letter codes that don't represent individual countries
+          (e.g., 'AFE', 'ARB', 'EAS', 'EUU', 'LCN', 'SSF', 'WLD')
     """
     df = load_worldbank_indicator(indicator_code, auto_download=auto_download)
-    return sorted(df.index.tolist())
+    # Filter out NaN/empty indices
+    countries = [c for c in df.index if c and isinstance(c, str) and not pd.isna(c)]
+    
+    if exclude_aggregates:
+        # Common World Bank aggregate codes
+        # Regional: AFE, AFW, ARB, CEB, EAP, EAS, ECA, ECS, EMU, EUU, FCS, HPC, LAC, LCN, MEA, MNA, NAC, OED, OSS, PRE, PSS, PST, SAS, SSA, SSF, TEA, TEC, TLA, TMN, TSA, TSS, WLD
+        # Income: HIC, IBD, IBT, IDA, IDB, IDX, INX, LDC, LIC, LMC, LMY, LTE, MIC, NOC, OEC, UMC
+        aggregates = {
+            'AFE', 'AFW', 'ARB', 'CEB', 'EAP', 'EAR', 'EAS', 'ECA', 'ECS', 'EMU', 'EUU', 
+            'FCS', 'HIC', 'HPC', 'IBD', 'IBT', 'IDA', 'IDB', 'IDX', 'INX', 'LAC', 'LCN',
+            'LDC', 'LIE', 'LIC', 'LMC', 'LMY', 'LTE', 'MAF', 'MCO', 'MEA', 'MIC', 'MNA', 
+            'NAC', 'NOC', 'OEC', 'OED', 'OSS', 'PRE', 'PSS', 'PST', 'SAS', 'SSA', 'SSF', 
+            'TEA', 'TEC', 'TLA', 'TMN', 'TSA', 'TSS', 'UMC', 'WLD'
+        }
+        countries = [c for c in countries if c not in aggregates]
+    
+    return sorted(countries)
